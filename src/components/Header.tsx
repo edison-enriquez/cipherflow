@@ -1,5 +1,6 @@
 import { Download, Github, Menu, Moon, Sun, Trash2, Upload } from 'lucide-react'
 import { EXAMPLES } from '../io'
+import { LABS } from '../labs'
 import { Tag } from './ui'
 import type { Theme } from '../hooks/useTheme'
 
@@ -7,13 +8,14 @@ interface Props {
   theme: Theme
   onToggleTheme: () => void
   onExample: (name: string) => void
+  onLab: (id: string) => void
   onExport: () => void
   onImport: () => void
   onClear: () => void
   onMenu: () => void
 }
 
-export default function Header({ theme, onToggleTheme, onExample, onExport, onImport, onClear, onMenu }: Props) {
+export default function Header({ theme, onToggleTheme, onExample, onLab, onExport, onImport, onClear, onMenu }: Props) {
   return (
     <header className="z-20 flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto sm:gap-2 border-b border-border bg-base px-3 sm:px-4">
       <button className="btn btn-icon md:hidden" onClick={onMenu} aria-label="Abrir la lista de bloques"><Menu size={14} /></button>
@@ -25,6 +27,16 @@ export default function Header({ theme, onToggleTheme, onExample, onExport, onIm
         <Tag color="green" className="hidden sm:inline-block">CyberChef</Tag>
         <span className="hidden truncate text-xs uppercase tracking-wider text-muted lg:inline">Flujos criptográficos por nodos</span>
       </div>
+      <select
+        className="btn max-w-[8rem] border-green/40 bg-base text-green sm:max-w-none"
+        value=""
+        onChange={e => { if (e.target.value) onLab(e.target.value) }}
+        aria-label="Cargar un laboratorio"
+        title="Laboratorios de vulnerabilidades"
+      >
+        <option value="">Laboratorios</option>
+        {Object.values(LABS).map(l => <option key={l.id} value={l.id}>{l.titulo}</option>)}
+      </select>
       <select
         className="btn max-w-[9rem] bg-base sm:max-w-none"
         value=""

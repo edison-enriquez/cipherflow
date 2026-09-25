@@ -6,7 +6,7 @@ import { edgeId } from './state/store'
 import { serializeGraph, type SavedGraph } from './state/runner'
 import type { DataEdgeT, OpNodeT } from './engine/types'
 
-type Spec = [key: string, op: string, x: number, y: number, args?: Record<string, any>][]
+export type Spec = [key: string, op: string, x: number, y: number, args?: Record<string, any>][]
 interface Example { n: Spec; e: [string, string, number?][]; open?: string }
 
 const K16 = { string: '000102030405060708090a0b0c0d0e0f', option: 'Hex' }
@@ -62,17 +62,25 @@ function mkNode(op: string, x: number, y: number, args?: Record<string, any>, id
   return { id, type: 'op', position: { x, y }, data }
 }
 
-export function buildExample(name: string) {
-  const ex = EXAMPLES[name]
+export interface FlowSpec { n: Spec; e: [string, string, number?][] }
+
+/** Construye nodos y aristas a partir de una especificación compacta; devuelve también el mapa de claves. */
+export function buildFlow(spec: FlowSpec) {
   const map: Record<string, string> = {}
   const nodes: OpNodeT[] = []
-  for (const [k, op, x, y, args] of ex.n) {
+  for (const [k, op, x, y, args] of spec.n) {
     if (!isCustom(op) && !opConfig(op)) continue
     const n = mkNode(op, x, y, args)
     map[k] = n.id
     nodes.push(n)
   }
-  const edges = ex.e.filter(([a, b]) => map[a] && map[b]).map(([a, b, p]) => mkEdge(map[a], map[b], p ?? 0))
+  const edges = spec.e.filter(([a, b]) => map[a] && map[b]).map(([a, b, p]) => mkEdge(map[a], map[b], p ?? 0))
+  return { nodes, edges, map }
+}
+
+export function buildExample(name: string) {
+  const ex = EXAMPLES[name]
+  const { nodes, edges, map } = buildFlow(ex)
   return { nodes, edges, open: ex.open ? map[ex.open] : undefined }
 }
 

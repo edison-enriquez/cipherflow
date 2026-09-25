@@ -14,6 +14,8 @@ import { loadSaved, usePersistence, useGraphRunner, waitForRun } from './state/r
 import { loadEngine } from './engine/cyberchef'
 import { buildCatalog, opInfo } from './engine/catalog'
 import { buildExample, exportText, graphFromSaved, parseImport, recipeTo } from './io'
+import { LABS, buildLab, type Lab } from './labs'
+import LabBrief from './components/LabBrief'
 import { useMedia, useTheme } from './hooks/useTheme'
 
 export default function App() {
@@ -24,6 +26,8 @@ export default function App() {
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [io, setIo] = useState<'export' | 'import' | null>(null)
+  const [lab, setLab] = useState<Lab | null>(null)
+  const [briefOpen, setBriefOpen] = useState(false)
   const paletteOpen = useStore(s => s.paletteOpen)
   const setPaletteOpen = useStore(s => s.setPaletteOpen)
   const setGraph = useStore(s => s.setGraph)
@@ -39,6 +43,17 @@ export default function App() {
     setGraph(ex.nodes, ex.edges)
     fit()
     if (openIt && ex.open && !compact) waitForRun().then(() => setTimeout(() => openDetail(ex.open!, 'proc'), 350))
+  }, [setGraph, fit, compact, openDetail])
+
+  const loadLab = useCallback((id: string) => {
+    const l = LABS[id]
+    if (!l) return
+    const g = buildLab(id)
+    setGraph(g.nodes, g.edges)
+    setLab(l)
+    setBriefOpen(true)
+    fit()
+    if (g.open && !compact) waitForRun().then(() => setTimeout(() => openDetail(g.open!, l.open ? 'proc' : 'out'), 350))
   }, [setGraph, fit, compact, openDetail])
 
   useEffect(() => {
@@ -107,10 +122,11 @@ export default function App() {
       <Header
         theme={theme}
         onToggleTheme={toggle}
-        onExample={name => loadExample(name)}
+        onExample={name => { setLab(null); loadExample(name) }}
+        onLab={loadLab}
         onExport={() => setIo('export')}
         onImport={() => setIo('import')}
-        onClear={() => { if (!useStore.getState().nodes.length || confirm('¿Borrar todos los bloques del lienzo?')) setGraph([], []) }}
+        onClear={() => { if (!useStore.getState().nodes.length || confirm('¿Borrar todos los bloques del lienzo?')) { setGraph([], []); setLab(null) } }}
         onMenu={() => setPaletteOpen(true)}
       />
       {!ready ? (
@@ -135,6 +151,16 @@ export default function App() {
           </div>
         </main>
       )}
+      {lab && !briefOpen && (
+        <button
+          className="btn btn-primary fixed bottom-6 right-4 z-20 shadow-lg"
+          onClick={() => setBriefOpen(true)}
+          title="Ver la consigna del laboratorio"
+        >
+          Reto: {lab.titulo.split('·')[0].trim()} ↑
+        </button>
+      )}
+      {lab && briefOpen && <LabBrief lab={lab} onClose={() => setBriefOpen(false)} />}
       <NodeDetail />
       <IODialog
         mode={io}

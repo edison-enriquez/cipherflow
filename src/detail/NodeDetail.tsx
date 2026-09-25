@@ -50,7 +50,8 @@ export default function NodeDetail() {
     setHtml(null); setCtx(null)
     if (!node || !res?.ok) return
     ;(async () => {
-      const h = await presentHTML(res.op, res.dish)
+      let h = await presentHTML(res.op, res.dish)
+      if (!h && res.type === 'html') h = await dishString(res.dish)
       const cfg = opConfig(node.data.op)
       const args = node.data.args ?? []
       const c: ExplainCtx = {

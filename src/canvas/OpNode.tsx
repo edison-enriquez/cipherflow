@@ -29,7 +29,11 @@ function OpNodeImpl({ id, data, selected }: NodeProps<OpNodeT>) {
   const sink = data.op === '__output'
   const title = (sink && data.params?.label) || info.name
   const sub = data.op === '__input' ? (data.params?.file ? 'Archivo: ' + data.params.fileName : 'Como ' + data.params?.fmt) : info.cat
-  const text = useMemo(() => (res?.ok && res.bytes ? preview(res.bytes, sink ? 1500 : 150) : ''), [res, sink])
+  const text = useMemo(() => {
+    if (!res?.ok || !res.bytes) return ''
+    if (res.type === 'html') return '[vista HTML — ábrela con ⤢ para verla]'
+    return preview(res.bytes, sink ? 1500 : 150)
+  }, [res, sink])
 
   const state = !shown ? 'pending' : !res ? 'wait' : res.ok ? 'done' : 'err'
   const border = active ? 'border-green shadow-[0_0_0_5px_rgb(var(--c-green)/0.2),0_0_28px_rgb(var(--c-green)/0.3)]'
