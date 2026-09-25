@@ -18,7 +18,7 @@ Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta
 
 ## Arquitectura
 
-Vite + React + TypeScript + Tailwind, con los mismos tokens de diseño que [Codara](https://github.com/edison-enriquez/Codara). El lienzo usa [React Flow](https://reactflow.dev) y el estado vive en un store de Zustand.
+Vite + React + TypeScript + Tailwind, con los mismos tokens de diseño que [Codara](https://github.com/edison-enriquez/Codara). El lienzo usa [@xyflow/react](https://reactflow.dev) (React Flow 12) y el estado vive en un store de Zustand.
 
 CyberChef no se empaqueta con la app. `engine/build.mjs` lo compila con esbuild en `public/engine/`, con **una entrada por operación** y el código compartido repartido en fragmentos. La app carga el núcleo al iniciar (tipos de datos y catálogo) y descarga cada operación la primera vez que un bloque la usa: un flujo de Base64 baja unos pocos KB y uno de AES, menos de 1 MB.
 
