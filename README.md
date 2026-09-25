@@ -17,7 +17,9 @@ Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta
   - SHA2 (SHA-256): relleno y las 64 rondas.
   - To/From Base64, To/From Hex, To Binary, XOR, ROT13, Vigenère Encode/Decode.
 - **Recetas de CyberChef.** Importa una receta (JSON de «Save recipe») como cadena de bloques y exporta la receta que lleva hasta el bloque seleccionado (siguiendo la entrada 1). También importa/exporta flujos propios en JSON.
-- **8 ejemplos incluidos:** AES-CBC por dentro, ECB revela patrones, Base64 bit a bit, SHA-256 y HMAC, XOR ida y vuelta, One-time pad con dos flujos, Magic, y ROT13/Vigenère.
+- **15 ejemplos en dos grupos** (menú **Ejemplos**):
+  - *Criptografía:* AES-CBC por dentro, ECB revela patrones, Base64 bit a bit, SHA-256 y HMAC, XOR ida y vuelta, One-time pad con dos flujos, Magic, y ROT13/Vigenère.
+  - *Redes:* anatomía de una petición HTTP (URL, User-Agent y credenciales Basic en claro), petición HTTP en vivo, consulta DNS en vivo (DoH), paquete DNS capa por capa (Ethernet → IPv4 → UDP → DNS), three-way handshake TCP, subredes IP y ClientHello TLS con huella JA3. Los dos ejemplos «en vivo» hacen peticiones reales desde el navegador.
 - **Persistencia local, temas claro/oscuro, paleta con buscador y panel de registro.** Diseño responsive (paleta como drawer en móvil).
 
 ## Arquitectura
@@ -35,7 +37,8 @@ src/lib/                bytes.ts, e implementaciones didácticas aes.ts y sha256
 src/state/              store.ts (Zustand), runner.ts (auto-ejecución, paso a paso, persistencia localStorage)
 src/components/         Header, Palette, Transport, LogPanel, Toast, IODialog, ui.tsx
 src/hooks/              useTheme.ts (tema + media queries)
-src/io.ts               8 ejemplos, importación (flujos + recetas) y exportación
+src/io.ts               ejemplos de criptografía, importación (flujos + recetas) y exportación
+src/examples.redes.ts   ejemplos de redes (paquetes de muestra con checksums válidos)
 scripts/                check-dist.mjs (verificación del build) y publicar.sh (deploy)
 .github/workflows/      ci.yml (verifica PRs) y deploy.yml (publica a Pages en cada push a main)
 ```

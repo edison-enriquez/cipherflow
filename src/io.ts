@@ -5,14 +5,15 @@ import { inPort } from './engine/graph'
 import { edgeId } from './state/store'
 import { serializeGraph, type SavedGraph } from './state/runner'
 import type { DataEdgeT, OpNodeT } from './engine/types'
+import { NET_EXAMPLES } from './examples.redes'
 
 export type Spec = [key: string, op: string, x: number, y: number, args?: Record<string, any>][]
-interface Example { n: Spec; e: [string, string, number?][]; open?: string }
+export interface Example { n: Spec; e: [string, string, number?][]; open?: string }
 
 const K16 = { string: '000102030405060708090a0b0c0d0e0f', option: 'Hex' }
 const IV16 = { string: '0f0e0d0c0b0a09080706050403020100', option: 'Hex' }
 
-export const EXAMPLES: Record<string, Example> = {
+const CRYPTO_EXAMPLES: Record<string, Example> = {
   'AES-CBC por dentro': {
     n: [['a', '__input', 0, 90, { text: 'Hola Juan, esto es AES-CBC!' }], ['b', 'AES Encrypt', 330, 90, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Raw', Output: 'Hex' }],
       ['c', '__output', 680, 0, { label: 'Cifrado (hex)' }], ['d', 'AES Decrypt', 680, 200, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Hex', Output: 'Raw' }], ['e', '__output', 1030, 200, { label: 'Descifrado' }]],
@@ -52,6 +53,10 @@ export const EXAMPLES: Record<string, Example> = {
     e: [['a', 'b'], ['b', 'c'], ['a', 'd'], ['d', 'e'], ['e', 'f']], open: 'd',
   },
 }
+
+/** Ejemplos agrupados como aparecen en el menú. */
+export const EXAMPLE_GROUPS: Record<string, Record<string, Example>> = { 'Criptografía': CRYPTO_EXAMPLES, 'Redes': NET_EXAMPLES }
+export const EXAMPLES: Record<string, Example> = { ...CRYPTO_EXAMPLES, ...NET_EXAMPLES }
 
 const uid = () => 'n' + Math.random().toString(36).slice(2, 9)
 const mkEdge = (source: string, target: string, port = 0): DataEdgeT =>

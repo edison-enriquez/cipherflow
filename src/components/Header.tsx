@@ -1,5 +1,5 @@
 import { Download, Github, Menu, Moon, Sun, Trash2, Upload } from 'lucide-react'
-import { EXAMPLES } from '../io'
+import { EXAMPLE_GROUPS } from '../io'
 import { LABS } from '../labs'
 import { Tag } from './ui'
 import type { Theme } from '../hooks/useTheme'
@@ -44,7 +44,11 @@ export default function Header({ theme, onToggleTheme, onExample, onLab, onExpor
         aria-label="Cargar un ejemplo"
       >
         <option value="">Ejemplos</option>
-        {Object.keys(EXAMPLES).map(k => <option key={k} value={k}>{k}</option>)}
+        {Object.entries(EXAMPLE_GROUPS).map(([g, ex]) => (
+          <optgroup key={g} label={g}>
+            {Object.keys(ex).map(k => <option key={k} value={k}>{k}</option>)}
+          </optgroup>
+        ))}
       </select>
       <button className="btn" onClick={onExport} title="Exportar el flujo o la receta de CyberChef"><Download size={13} /><span className="hidden sm:inline">Exportar</span></button>
       <button className="btn" onClick={onImport} title="Importar un flujo o una receta de CyberChef"><Upload size={13} /><span className="hidden sm:inline">Importar</span></button>
