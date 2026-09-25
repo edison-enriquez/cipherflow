@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { Upload, X } from 'lucide-react'
 
 interface Props {
   mode: 'export' | 'import' | null
@@ -12,6 +12,7 @@ interface Props {
 
 export default function IODialog({ mode, exportText, recipe, onImport, onClose, onCopied }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
   useEffect(() => {
     const d = ref.current
@@ -48,7 +49,13 @@ export default function IODialog({ mode, exportText, recipe, onImport, onClose, 
           <>
             <p className="text-xs text-muted">Pega un flujo de CipherFlow o una receta de CyberChef (el JSON de «Save recipe»). La receta se convierte en una cadena de bloques.</p>
             <textarea value={text} onChange={e => setText(e.target.value)} className="field-input h-64 resize-y" spellCheck={false} aria-label="JSON para importar" />
+            <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={async e => {
+              const f = e.target.files?.[0]
+              if (f) setText(await f.text())
+              e.target.value = ''
+            }} />
             <div className="flex justify-end gap-2">
+              <button className="btn mr-auto" onClick={() => fileRef.current?.click()}><Upload size={12} /> Cargar archivo .json</button>
               <button className="btn" onClick={onClose}>Cancelar</button>
               <button className="btn btn-primary" onClick={() => onImport(text)} disabled={!text.trim()}>Importar</button>
             </div>
