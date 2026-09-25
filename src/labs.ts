@@ -114,7 +114,7 @@ export const LABS: Record<string, Lab> = {
     vuln: 'La sustitución monoalfabética conserva la huella del idioma',
     dificultad: 'Intermedio',
     objetivo: 'Descifrar un texto sin la clave, usando solo la estadística del español.',
-    reto: 'El texto está cifrado con una sustitución monoalfabética (cada letra se cambió por otra fija). El bloque «Frequency distribution» muestra qué símbolos son más comunes. Usa el bloque «Substitute» para ir armando el alfabeto: en «Ciphertext» pon las letras cifradas y en «Plaintext» tus hipótesis. Recupera el mensaje.',
+    reto: 'El texto está cifrado con una sustitución monoalfabética (cada letra se cambió por otra fija). El bloque «Frequency distribution» muestra qué símbolos son más comunes. Usa el bloque «Substitute» para ir armando el alfabeto: Substitute cambia cada carácter de «Plaintext» por el de la misma posición en «Ciphertext», así que para descifrar pon en «Plaintext» las letras cifradas y en «Ciphertext» tus hipótesis. Recupera el mensaje.',
     pistas: [
       'En español las más frecuentes son E y A, seguidas de O, S, N, R. Empareja los símbolos más comunes del cifrado con estas.',
       'Las palabras de una letra son casi siempre A, E, O, Y. Las de dos que se repiten mucho: DE, LA, EL, EN, SE.',
@@ -145,7 +145,7 @@ export const LABS: Record<string, Lab> = {
     reto: 'El token cifrado descifra a «admin=0;…». Tu meta: que descifre a «admin=1;…» SIN tocar la clave. En CBC, P0 = D(C0) ⊕ IV, así que al voltear un byte del IV volteas el mismo byte del texto claro. La rama de arriba calcula IV ⊕ máscara (la máscara ya tiene 0x01 en la posición 6). Copia ese «IV modificado» al parámetro IV del bloque «AES Decrypt» de abajo y observa el resultado.',
     pistas: [
       "El byte a cambiar es '0' (0x30) → '1' (0x31). La diferencia es 0x30 ⊕ 0x31 = 0x01, y va en la posición 6, dentro del primer bloque.",
-      'La máscara ya está puesta: ceros salvo un 0x01 en la posición 6. El bloque «A hex» de arriba te da el IV modificado listo para copiar.',
+      'La máscara ya está puesta: ceros salvo un 0x01 en la posición 6. El bloque «To Hex» de arriba te da el IV modificado listo para copiar.',
       'Pega ese valor en el campo IV del bloque AES Decrypt (formato Hex). El texto pasa de admin=0 a admin=1 y el resto queda intacto, porque el IV solo afecta al primer bloque.',
       'El bloque de descifrado tiene la clave solo para que veas el efecto; el atacante real no la conoce ni la necesita: manipula el mensaje a ciegas.',
     ],
