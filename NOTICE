@@ -1,0 +1,14 @@
+CipherFlow
+Copyright 2026 Edison Ferney Enríquez Ceballos
+
+Este producto incluye software de CyberChef (https://github.com/gchq/CyberChef),
+Copyright © Crown Copyright, licenciado bajo la Apache License, Version 2.0.
+CyberChef usa la misma licencia que CipherFlow; su texto está en LICENSE.
+
+Cambios respecto a CyberChef: el código se compila para el navegador con esbuild
+(engine/build.mjs). Durante la compilación se comenta una reasignación de
+importación en src/core/vendor/gost/*.mjs y se sustituye la sentencia
+`with (Math)` de la dependencia chi-squared. No se modifica ninguna operación.
+
+El motor generado incluye además las dependencias de CyberChef, cada una bajo
+su propia licencia (consultables en node_modules/<paquete>/ tras instalar).

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CipherFlow — Flujos criptográficos con CyberChef</title>
+    <meta name="description" content="Editor visual de flujos criptográficos por nodos sobre el motor de CyberChef, con explicaciones paso a paso de AES, SHA-256, Base64 y más." />
+    <meta property="og:title" content="CipherFlow" />
+    <meta property="og:description" content="Flujos criptográficos por nodos con las operaciones de CyberChef y explicaciones paso a paso." />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <script>
+      (function () {
+        try { if (localStorage.getItem('cipherflow-theme') === 'light') document.documentElement.setAttribute('data-theme', 'light') } catch (e) {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

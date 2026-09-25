@@ -1,0 +1,57 @@
+{
+  "name": "cipherflow",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Editor visual de flujos criptográficos por nodos (estilo n8n) sobre el motor de CyberChef, con explicaciones internas paso a paso.",
+  "license": "Apache-2.0",
+  "author": "Edison Ferney Enríquez Ceballos",
+  "homepage": "https://edison-enriquez.github.io/cipherflow/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edison-enriquez/cipherflow.git"
+  },
+  "type": "module",
+  "scripts": {
+    "engine": "node engine/build.mjs",
+    "predev": "node engine/build.mjs --si-falta",
+    "dev": "vite",
+    "prebuild": "node engine/build.mjs",
+    "build": "tsc -p tsconfig.app.json && vite build",
+    "typecheck": "tsc -p tsconfig.app.json",
+    "preview": "vite preview",
+    "publicar": "bash scripts/publicar.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.12.0",
+    "lucide-react": "^0.344.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "assert": "^2.1.0",
+    "autoprefixer": "^10.4.20",
+    "browserify-zlib": "^0.2.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "cyberchef": "11.5.0",
+    "esbuild": "^0.28.2",
+    "events": "^3.3.0",
+    "path": "^0.12.7",
+    "postcss": "^8.4.40",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "tailwindcss": "^3.4.10",
+    "terser": "5.51.2",
+    "typescript": "^5.5.3",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
+    "vite": "^5.4.21"
+  }
+}

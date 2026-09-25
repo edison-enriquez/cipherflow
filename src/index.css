@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Tokens: OSCURO (predeterminado), idénticos a Codara ────────────────── */
+:root {
+  color-scheme: dark;
+  --c-base: 0 0 0;
+  --c-surface: 15 15 15;
+  --c-elevated: 23 23 23;
+  --c-border: 31 31 31;
+  --c-muted: 125 125 125;
+  --c-text: 255 255 255;
+  --c-blue: 77 158 255;
+  --c-green: 125 247 186;
+  --c-red: 255 92 92;
+  --c-yellow: 255 224 102;
+  --c-purple: 204 153 255;
+  --c-orange: 255 170 77;
+  --c-cyan: 0 229 229;
+  --c-pink: 255 110 180;
+  /* Propios de CipherFlow: éxito y tipos de dato (distinguibles en ambos temas) */
+  --c-ok: 125 247 186;
+  --c-tstr: 77 158 255;
+  --c-tbuf: 255 224 102;
+  --c-tjson: 204 153 255;
+  --c-tnum: 125 247 186;
+  --c-wire: 61 61 61;
+  --c-grid: 28 28 28;
+  --scrollbar-track: #000;
+  --scrollbar-thumb: #333;
+  --scrollbar-hover: #555;
+}
+
+/* ─── Tokens: CLARO, paleta RemoteOK de Codara ───────────────────────────── */
+[data-theme='light'] {
+  color-scheme: light;
+  --c-base: 235 235 235;
+  --c-surface: 255 255 255;
+  --c-elevated: 245 245 245;
+  --c-border: 210 210 210;
+  --c-muted: 107 107 107;
+  --c-text: 17 17 17;
+  --c-green: 255 71 66;
+  --c-blue: 255 71 66;
+  --c-cyan: 255 71 66;
+  --c-orange: 255 120 50;
+  --c-yellow: 180 120 0;
+  --c-red: 220 38 38;
+  --c-purple: 124 58 237;
+  --c-pink: 219 39 119;
+  --c-ok: 0 130 80;
+  --c-tstr: 11 102 195;
+  --c-tbuf: 180 120 0;
+  --c-tjson: 124 58 237;
+  --c-tnum: 0 130 80;
+  --c-wire: 181 181 181;
+  --c-grid: 207 207 207;
+  --scrollbar-track: #d8d8d8;
+  --scrollbar-thumb: #b0b0b0;
+  --scrollbar-hover: #888888;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { font-family: 'JetBrains Mono', 'Courier New', monospace; letter-spacing: -0.01em; }
+  html, body, #root { height: 100%; }
+  body { @apply bg-base text-text; margin: 0; font-size: 14px; overflow: hidden; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+  button, select, input, textarea { font: inherit; letter-spacing: inherit; }
+  :focus-visible { outline: 1px solid rgb(var(--c-green)); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+}
+
+@layer components {
+  /* Botón de la cabecera y barras, como los de Codara */
+  .btn { @apply inline-flex items-center justify-center gap-1.5 border border-border px-2.5 py-1.5 text-xs uppercase tracking-wider text-muted transition-colors hover:border-green/50 hover:text-green disabled:cursor-default disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted; }
+  .btn-on { @apply border-green/50 bg-green/10 text-green; }
+  .btn-primary { @apply border-green/50 bg-green/10 font-bold text-green hover:bg-green/20; }
+  .btn-icon { @apply h-7 w-7 px-0 py-0; }
+  .label { @apply text-[10.5px] font-bold uppercase tracking-widest text-muted; }
+  .field-input { @apply w-full border border-border bg-base px-2.5 py-2 text-xs text-text placeholder:text-muted focus:border-green/50 focus:outline-none; }
+  .tag { @apply inline-block rounded border px-1.5 text-[10.5px] leading-[1.6]; }
+  .panel-pre { @apply max-h-[46vh] overflow-auto rounded border border-border bg-base p-2.5 text-[11.5px] leading-relaxed; }
+  .tbl { @apply border-collapse text-[11.5px]; }
+  .tbl th { @apply border border-border bg-elevated px-2 py-1 text-left text-[10px] font-bold uppercase tracking-wider text-muted; }
+  .tbl td { @apply border border-border px-2 py-1 align-top; }
+  .bits .g { @apply mr-2 inline-block border-b border-muted px-0.5; }
+}
+
+/* Colores de bytes en las explicaciones */
+.c0 { color: rgb(var(--c-tstr)); }
+.c1 { color: rgb(var(--c-orange)); }
+.c2 { color: rgb(var(--c-ok)); }
+.cz { color: rgb(var(--c-muted)); opacity: 0.6; }
+.one { background: rgb(var(--c-tbuf) / 0.18); color: rgb(var(--c-tbuf)); border-radius: 2px; }
+.pad-a { color: rgb(var(--c-orange)); font-weight: 700; }
+.pad-z { color: rgb(var(--c-muted)); }
+.pad-l { color: rgb(var(--c-ok)); font-weight: 700; }
+
+/* Vista enriquecida de CyberChef (HTML generado por la operación) */
+.cc-html table { border-collapse: collapse; font-size: 11.5px; }
+.cc-html td, .cc-html th { border: 1px solid rgb(var(--c-border)); padding: 3px 6px; text-align: left; vertical-align: top; }
+.cc-html a { color: rgb(var(--c-green)); }
+
+/* ─── React Flow con los tokens de Codara ───────────────────────────────── */
+.react-flow { --xy-background-color: rgb(var(--c-base)); }
+.react-flow__attribution { background: transparent; }
+.react-flow__attribution a { color: rgb(var(--c-muted)); }
+.react-flow__edge-path { stroke: rgb(var(--c-wire)); stroke-width: 1.6; }
+.react-flow__edge.selected .react-flow__edge-path, .react-flow__edge:hover .react-flow__edge-path { stroke: rgb(var(--c-green)); }
+.react-flow__edge.bad .react-flow__edge-path { stroke: rgb(var(--c-red)); stroke-dasharray: 5 4; }
+.react-flow__edge.pend .react-flow__edge-path { stroke: rgb(var(--c-border)); stroke-dasharray: 4 5; }
+.react-flow__edge.hot .react-flow__edge-path { stroke: rgb(var(--c-green)); stroke-width: 2.2; }
+.react-flow__connection-path { stroke: rgb(var(--c-green)); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.react-flow__handle { width: 11px; height: 11px; border-radius: 0; border: 1px solid rgb(var(--c-muted)); background: rgb(var(--c-elevated)); }
+.react-flow__handle.source, .react-flow__handle.on { background: rgb(var(--c-green)); border-color: rgb(var(--c-green)); }
+.react-flow__handle::after { content: ''; position: absolute; inset: -12px; }
+.react-flow__controls { box-shadow: none; border: 1px solid rgb(var(--c-border)); }
+.react-flow__controls-button { background: rgb(var(--c-base)); border-bottom: 1px solid rgb(var(--c-border)); fill: rgb(var(--c-muted)); color: rgb(var(--c-muted)); }
+.react-flow__controls-button:hover { background: rgb(var(--c-surface)); fill: rgb(var(--c-green)); }
+.react-flow__minimap { background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-border)); }
+.react-flow__minimap-mask { fill: rgb(var(--c-base) / 0.7); }
+.react-flow__node.selected, .react-flow__node:focus-visible { outline: none; }
