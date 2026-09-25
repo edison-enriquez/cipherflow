@@ -4,7 +4,7 @@
 
 ## El reto
 
-El token cifrado descifra a `admin=0;alumno=Edison;grupo=uvas`. Consigue que descifre a `admin=1;…` **sin tocar la clave**.
+El token cifrado descifra a `admin=0;alumno=Juan;grupo=fresas`. Consigue que descifre a `admin=1;…` **sin tocar la clave**.
 
 <p align="center"><img src="img/lab5-consigna.png" alt="Consigna del Lab 5 en CipherFlow" width="560"></p>
 
@@ -31,7 +31,7 @@ Como ese byte está en el primer bloque, se manipula el **IV** en esa misma posi
 El resultado pasa a:
 
 ```
-admin=1;alumno=Edison;grupo=uvas
+admin=1;alumno=Juan;grupo=fresas
 ```
 
 ![Lienzo final del Lab 5: el token descifrado ya dice admin=1](img/lab5-flujo-final.png)
@@ -64,9 +64,9 @@ Con `openssl`, `xxd` y bash (ver [requisitos](README.md#verificar-fuera-de-ciphe
 ```bash
 K=860b5ac6d9001ff91f674145cb0c7554
 IV=14958d50625e04a937c617a7bae2e607
-echo f1be5198f27728731b44fa41786b80009b4e4cf1719e669a2988a917997b8aa8 | xxd -r -p > token.bin
+echo 0df1badff716988271c36a28c6cc8a2597198f63b175beabc2684362537a7e49 | xxd -r -p > token.bin
 openssl enc -d -aes-128-cbc -K $K -iv $IV -nopad -in token.bin
-# admin=0;alumno=Edison;grupo=uvas
+# admin=0;alumno=Juan;grupo=fresas
 ```
 
 Calcula `IV' = IV ⊕ Δ` en el byte 6 (caracteres 12–13 de la cadena hex) y descifra con él:
@@ -76,18 +76,18 @@ IV2=$(printf '%s%02x%s' ${IV:0:12} $((0x${IV:12:2} ^ 0x01)) ${IV:14})
 echo $IV2
 # 14958d50625e05a937c617a7bae2e607
 openssl enc -d -aes-128-cbc -K $K -iv $IV2 -nopad -in token.bin
-# admin=1;alumno=Edison;grupo=uvas
+# admin=1;alumno=Juan;grupo=fresas
 ```
 
 > **¿Por qué `-nopad`?** El token son exactamente 32 bytes sin relleno PKCS#7 (en CipherFlow, modo `CBC/NoPadding`). Si lo quitas, `openssl` busca un relleno válido al final, no lo encuentra y responde `bad decrypt`. Justo esa diferencia entre «relleno válido» y «relleno inválido», si un servidor la deja ver, es el oráculo del ataque de la sección siguiente.
 
-**Reto extra: cambiar el segundo bloque.** Para tocar bytes del bloque 1 hay que voltear el mismo byte de `C₀`. Así se cambia `grupo=uvas` por `grupo=kiwi` (posiciones 28–31, es decir, 12–15 dentro del bloque 1):
+**Reto extra: cambiar el segundo bloque.** Para tocar bytes del bloque 1 hay que voltear el mismo byte de `C₀`. Así se cambia `grupo=fresas` por `grupo=mangos` (posiciones 26–31, es decir, 10–15 dentro del bloque 1):
 
 ```bash
-python3 -c "c=bytearray(open('token.bin','rb').read());d=bytes(a^b for a,b in zip(b'uvas',b'kiwi'));c[12:16]=bytes(x^y for x,y in zip(c[12:16],d));open('token2.bin','wb').write(c)"
+python3 -c "c=bytearray(open('token.bin','rb').read());d=bytes(a^b for a,b in zip(b'fresas',b'mangos'));c[10:16]=bytes(x^y for x,y in zip(c[10:16],d));open('token2.bin','wb').write(c)"
 openssl enc -d -aes-128-cbc -K $K -iv $IV -nopad -in token2.bin | xxd
-# 00000000: 3304 057c e0b7 392c 449b 2991 9ce7 4168  3..|..9,D.)...Ah   ← bloque 0 destruido
-# 00000010: 6469 736f 6e3b 6772 7570 6f3d 6b69 7769  dison;grupo=kiwi   ← bloque 1 a la carta
+# 00000000: 0d2e 5898 d49d c2ae 7f47 ddfb 4a1c 232f  ..X......G..J.#/   ← bloque 0 destruido
+# 00000010: 7561 6e3b 6772 7570 6f3d 6d61 6e67 6f73  uan;grupo=mangos   ← bloque 1 a la carta
 ```
 
 El bloque 1 queda exactamente como quería el atacante, pero el bloque 0 se convierte en basura: ese es el compromiso del que habla la sección anterior.
@@ -98,7 +98,7 @@ El bloque 1 queda exactamente como quería el atacante, pero el bloque 0 se conv
 const crypto = require('node:crypto')
 const key = Buffer.from('860b5ac6d9001ff91f674145cb0c7554', 'hex'), iv = crypto.randomBytes(12)
 const enc = crypto.createCipheriv('aes-128-gcm', key, iv)
-const ct = Buffer.concat([enc.update('admin=0;alumno=Edison;grupo=uvas'), enc.final()]), tag = enc.getAuthTag()
+const ct = Buffer.concat([enc.update('admin=0;alumno=Juan;grupo=fresas'), enc.final()]), tag = enc.getAuthTag()
 const abrir = c => { const d = crypto.createDecipheriv('aes-128-gcm', key, iv); d.setAuthTag(tag); return Buffer.concat([d.update(c), d.final()]).toString() }
 console.log('original :', abrir(ct))
 const mod = Buffer.from(ct); mod[6] ^= 0x01                    // el mismo volteo de bit que en CBC
@@ -106,7 +106,7 @@ try { console.log('alterado :', abrir(mod)) } catch (e) { console.log('alterado 
 ```
 
 ```
-original : admin=0;alumno=Edison;grupo=uvas
+original : admin=0;alumno=Juan;grupo=fresas
 alterado : Unsupported state or unable to authenticate data
 ```
 

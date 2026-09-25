@@ -14,7 +14,7 @@ export type CustomOp = keyof typeof CUSTOM
 export const isCustom = (op: string): op is CustomOp => op in CUSTOM
 
 export const customDefaults = (op: CustomOp): Record<string, any> => ({
-  __input: { text: 'Hola Edison, esto es AES-CBC!', fmt: 'Texto (UTF-8)', file: null, fileName: '' },
+  __input: { text: 'Hola Juan, esto es AES-CBC!', fmt: 'Texto (UTF-8)', file: null, fileName: '' },
   __output: { label: '' },
   __xor2: {},
   __concat: { sep: '' },

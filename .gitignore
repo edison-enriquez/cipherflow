@@ -3,3 +3,5 @@ dist/
 public/engine/
 .DS_Store
 *.tsbuildinfo
+
+writeups/flujos

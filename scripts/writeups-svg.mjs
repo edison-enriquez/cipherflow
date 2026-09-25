@@ -155,7 +155,7 @@ const write = (name, s) => { fs.writeFileSync(OUT + name, s); console.log('ok', 
 
 // ── Lab 5: descifrado CBC del primer bloque y el volteo del IV ─────────────────────
 {
-  const iv = h(L.cbc.iv), mask = h(L.cbc.mask), pt = Buffer.from('admin=0;alumno=E')
+  const iv = h(L.cbc.iv), mask = h(L.cbc.mask), pt = Buffer.from(L.cbc.pt.slice(0, 16))
   const d = iv.map((v, i) => v ^ pt[i])
   const iv2 = iv.map((v, i) => v ^ mask[i])
   const pt2 = d.map((v, i) => v ^ iv2[i])

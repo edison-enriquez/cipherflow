@@ -14,7 +14,7 @@ const IV16 = { string: '0f0e0d0c0b0a09080706050403020100', option: 'Hex' }
 
 export const EXAMPLES: Record<string, Example> = {
   'AES-CBC por dentro': {
-    n: [['a', '__input', 0, 90, { text: 'Hola Edison, esto es AES-CBC!' }], ['b', 'AES Encrypt', 330, 90, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Raw', Output: 'Hex' }],
+    n: [['a', '__input', 0, 90, { text: 'Hola Juan, esto es AES-CBC!' }], ['b', 'AES Encrypt', 330, 90, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Raw', Output: 'Hex' }],
       ['c', '__output', 680, 0, { label: 'Cifrado (hex)' }], ['d', 'AES Decrypt', 680, 200, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Hex', Output: 'Raw' }], ['e', '__output', 1030, 200, { label: 'Descifrado' }]],
     e: [['a', 'b'], ['b', 'c'], ['b', 'd'], ['d', 'e']], open: 'b',
   },
