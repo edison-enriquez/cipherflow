@@ -5,7 +5,7 @@
   "description": "Editor visual de flujos criptográficos por nodos (estilo n8n) sobre el motor de CyberChef, con explicaciones internas paso a paso.",
   "license": "Apache-2.0",
   "author": "Edison Ferney Enríquez Ceballos",
-  "homepage": "https://edison-enriquez.github.io/cipherflow/",
+  "homepage": "https://cipherflow.eehub.ing/",
   "repository": {
     "type": "git",
     "url": "https://github.com/edison-enriquez/cipherflow.git"

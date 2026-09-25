@@ -2,7 +2,7 @@
 
 Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta las operaciones reales de [CyberChef 11.5.0](https://github.com/gchq/CyberChef). Pensado para enseñar: además del resultado, muestra qué datos entran y salen de cada bloque y cómo funcionan por dentro las operaciones más usadas en clase.
 
-**Demo:** https://edison-enriquez.github.io/cipherflow/
+**Demo:** https://cipherflow.eehub.ing/
 **Versión:** 3.0.0 · **Stack:** Vite 5 + React 18 + TypeScript 5 + Tailwind 3 + [@xyflow/react](https://reactflow.dev) 12 + Zustand 4
 
 ## Qué hace
@@ -46,9 +46,9 @@ Requiere Node 20 o superior.
 
 ```bash
 npm install
-npm run dev        # compila el motor si falta (predev) y abre http://localhost:5173/cipherflow/
+npm run dev        # compila el motor si falta (predev) y abre http://localhost:5173/
 npm run build      # motor + typecheck + build de producción en dist/
-npm run preview    # sirve dist/ en http://localhost:4173/cipherflow/
+npm run preview    # sirve dist/ en http://localhost:4173/
 npm run typecheck  # solo verificación de tipos
 ```
 
@@ -64,9 +64,9 @@ Con la [CLI de GitHub](https://cli.github.com) y la sesión iniciada (`gh auth l
 npm run publicar            # o: bash scripts/publicar.sh [nombre-del-repo] [public|private]
 ```
 
-La página queda en `https://<usuario>.github.io/cipherflow/`. Desde entonces, cada push a `main` la reconstruye y la vuelve a publicar (`.github/workflows/deploy.yml`); los pull requests solo se compilan y verifican (`ci.yml`).
+Desde entonces, cada push a `main` la reconstruye y la vuelve a publicar (`.github/workflows/deploy.yml`); los pull requests solo se compilan y verifican (`ci.yml`).
 
-Si el repositorio tiene otro nombre, cambia `base` en `vite.config.ts` y la ruta que revisa `scripts/check-dist.mjs`.
+La app se compila con `base: '/'` porque se sirve en la raíz de un dominio propio (`cipherflow.eehub.ing`, configurado en *Settings → Pages → Custom domain*). Si la publicas sin dominio propio, en `https://<usuario>.github.io/<repo>/`, cambia `base` a `'/<repo>/'` en `vite.config.ts` y la ruta que revisa `scripts/check-dist.mjs`; si no coinciden, el navegador pide los archivos en la ruta equivocada y la página queda en blanco.
 
 ## Licencia
 

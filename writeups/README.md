@@ -1,6 +1,6 @@
 # Laboratorios de vulnerabilidades — soluciones
 
-Cada laboratorio se carga desde el menú **Laboratorios** de [CipherFlow](https://edison-enriquez.github.io/cipherflow/). El laboratorio es el reto; aquí está la solución de ejemplo de cada uno.
+Cada laboratorio se carga desde el menú **Laboratorios** de [CipherFlow](https://cipherflow.eehub.ing/). El laboratorio es el reto; aquí está la solución de ejemplo de cada uno.
 
 | # | Laboratorio | Vulnerabilidad | Dificultad |
 |---|-------------|----------------|------------|
