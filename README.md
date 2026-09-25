@@ -1,37 +1,43 @@
 # CipherFlow
 
-Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta las operaciones reales de [CyberChef](https://github.com/gchq/CyberChef). Está pensado para enseñar: además del resultado, muestra qué datos entran y salen de cada bloque y cómo funcionan por dentro las operaciones más usadas en clase.
+Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta las operaciones reales de [CyberChef 11.5.0](https://github.com/gchq/CyberChef). Pensado para enseñar: además del resultado, muestra qué datos entran y salen de cada bloque y cómo funcionan por dentro las operaciones más usadas en clase.
 
 **Demo:** https://edison-enriquez.github.io/cipherflow/
+**Versión:** 3.0.0 · **Stack:** Vite 5 + React 18 + TypeScript 5 + Tailwind 3 + [@xyflow/react](https://reactflow.dev) 12 + Zustand 4
 
 ## Qué hace
 
-- **Casi 500 operaciones de CyberChef** con sus mismos parámetros, agrupadas por categoría y con buscador. Quedan fuera los bloques de control de flujo (Fork, Merge, Jump…), porque en un grafo esa función la cumplen los cables. Magic sí está incluido.
-- **Cables con datos visibles.** Cada cable muestra el tipo y el tamaño de lo que transporta (`string 64 B`, `ArrayBuffer 29 B`…). Al tocarlo se abre el bloque de destino con esos datos.
-- **Modo paso a paso.** Recorre el flujo en orden: un pulso viaja por cada cable, el bloque activo se ilumina y un registro anota qué entró y qué salió en cada paso.
-- **Vista de detalle (Entrada, Parámetros, Salida y Proceso).** Muestra los datos como texto, volcado hex o tabla de bytes, e indica cuándo CyberChef convierte el tipo del dato entre bloques.
-- **Explicaciones internas verificadas.** Cada reconstrucción didáctica se compara con la salida real de CyberChef:
-  - AES: relleno PKCS#7, modos ECB, CBC, CFB, OFB y CTR, y cada ronda con matrices 4×4.
-  - SHA-256: relleno y las 64 rondas.
-  - Base64, hex, binario, XOR, ROT13 y Vigenère.
-- **Recetas de CyberChef.** Se puede importar una receta (el JSON de «Save recipe») para convertirla en cadena de bloques, y exportar la receta que lleva hasta el bloque seleccionado.
+- **Operaciones reales de CyberChef** con sus mismos parámetros, agrupadas por categoría en español y con buscador. Quedan fuera 9 bloques de control de flujo (`Fork`, `Merge`, `Jump`, `Conditional Jump`, `Return`, `Subsection`, `Register`, `Label`, `Comment`), porque en un grafo esa función la cumplen los cables. `Magic` sí está incluido. La lista de populares incluye Base64, Hex, AES, XOR, SHA2, ROT13, Magic, Binary, Vigenère, Gunzip y URL Decode.
+- **4 bloques propios de flujo:** Entrada (texto/hex/Base64/archivo), Salida, XOR de dos flujos y Unir flujos.
+- **Cables con datos visibles.** Cada cable muestra tipo y tamaño (`string 64 B`, `ArrayBuffer 29 B`…). Al tocarlo se abre el bloque de destino con esos datos.
+- **Ejecución automática + modo paso a paso.** El grafo se reejecuta al cambiar nodos, aristas o parámetros; el modo paso a paso recorre el flujo en orden topológico con pulso animado, bloque activo iluminado y registro de qué entró/salió en cada paso.
+- **Vista de detalle (Entrada, Parámetros, Salida y Proceso).** Datos como texto, volcado hex o tabla de bytes; indica conversiones de tipo de CyberChef entre bloques. Los parámetros son los controles nativos de cada operación (los mismos de CyberChef).
+- **Explicaciones internas verificadas (★, 12 operaciones).** Cada reconstrucción didáctica se compara con la salida real de CyberChef:
+  - AES Encrypt/Decrypt: relleno PKCS#7, modos ECB, CBC, CFB, OFB y CTR, rondas con matrices 4×4.
+  - SHA2 (SHA-256): relleno y las 64 rondas.
+  - To/From Base64, To/From Hex, To Binary, XOR, ROT13, Vigenère Encode/Decode.
+- **Recetas de CyberChef.** Importa una receta (JSON de «Save recipe») como cadena de bloques y exporta la receta que lleva hasta el bloque seleccionado (siguiendo la entrada 1). También importa/exporta flujos propios en JSON.
+- **8 ejemplos incluidos:** AES-CBC por dentro, ECB revela patrones, Base64 bit a bit, SHA-256 y HMAC, XOR ida y vuelta, One-time pad con dos flujos, Magic, y ROT13/Vigenère.
+- **Persistencia local, temas claro/oscuro, paleta con buscador y panel de registro.** Diseño responsive (paleta como drawer en móvil).
 
 ## Arquitectura
 
-Vite + React + TypeScript + Tailwind, con los mismos tokens de diseño que [Codara](https://github.com/edison-enriquez/Codara). El lienzo usa [@xyflow/react](https://reactflow.dev) (React Flow 12) y el estado vive en un store de Zustand.
-
-CyberChef no se empaqueta con la app. `engine/build.mjs` lo compila con esbuild en `public/engine/`, con **una entrada por operación** y el código compartido repartido en fragmentos. La app carga el núcleo al iniciar (tipos de datos y catálogo) y descarga cada operación la primera vez que un bloque la usa: un flujo de Base64 baja unos pocos KB y uno de AES, menos de 1 MB.
+CyberChef no se empaqueta con la app. `engine/build.mjs` lo compila con esbuild en `public/engine/`, con **una entrada por operación** y el código compartido en fragmentos. La app carga el núcleo al iniciar (tipos de datos y catálogo) y descarga cada operación la primera vez que un bloque la usa: un flujo de Base64 baja unos pocos KB y uno de AES, menos de 1 MB.
 
 ```
-engine/                 Compilación del motor de CyberChef (esbuild → public/engine/)
-src/engine/             Puente con el motor, catálogo en español y ejecución del grafo
-src/canvas/             Lienzo de React Flow: bloques y cables con datos
-src/detail/             Vista de detalle: entrada, parámetros, salida y proceso
-src/explainers/         Explicaciones paso a paso (AES, SHA-256, Base64, XOR…)
-src/lib/                Utilidades de bytes y las implementaciones didácticas de AES y SHA-256
-src/state/              Store, ejecución automática y guardado en el navegador
-src/io.ts               Ejemplos, importación y exportación
-scripts/                Verificación del build y publicación en GitHub
+engine/                 Compilación del motor CyberChef (esbuild → public/engine/)
+src/engine/             Puente con el motor (cyberchef.ts), catálogo en español (catalog.ts),
+                        ejecución del grafo (graph.ts) y tipos (types.ts)
+src/canvas/             Lienzo @xyflow/react: Canvas.tsx, bloques (OpNode.tsx) y cables (DataEdge.tsx)
+src/detail/             Vista de detalle: NodeDetail.tsx, Params.tsx, DataView.tsx, Process.tsx
+src/explainers/         Explicaciones paso a paso: aes.tsx, sha256.tsx, encodings.tsx, classic.tsx
+src/lib/                bytes.ts, e implementaciones didácticas aes.ts y sha256.ts
+src/state/              store.ts (Zustand), runner.ts (auto-ejecución, paso a paso, persistencia localStorage)
+src/components/         Header, Palette, Transport, LogPanel, Toast, IODialog, ui.tsx
+src/hooks/              useTheme.ts (tema + media queries)
+src/io.ts               8 ejemplos, importación (flujos + recetas) y exportación
+scripts/                check-dist.mjs (verificación del build) y publicar.sh (deploy)
+.github/workflows/      ci.yml (verifica PRs) y deploy.yml (publica a Pages en cada push a main)
 ```
 
 ## Desarrollo
@@ -40,9 +46,10 @@ Requiere Node 20 o superior.
 
 ```bash
 npm install
-npm run dev        # compila el motor la primera vez y abre http://localhost:5173/cipherflow/
+npm run dev        # compila el motor si falta (predev) y abre http://localhost:5173/cipherflow/
 npm run build      # motor + typecheck + build de producción en dist/
 npm run preview    # sirve dist/ en http://localhost:4173/cipherflow/
+npm run typecheck  # solo verificación de tipos
 ```
 
 `npm run engine` recompila el motor, por ejemplo tras actualizar CyberChef.
@@ -51,7 +58,7 @@ Para agregar una explicación paso a paso a otra operación, crea el componente 
 
 ## Publicación en GitHub Pages
 
-Con la [CLI de GitHub](https://cli.github.com) y la sesión iniciada (`gh auth login`), un solo comando crea el repositorio, sube el código, activa Pages con GitHub Actions y lanza el primer despliegue:
+Con la [CLI de GitHub](https://cli.github.com) y la sesión iniciada (`gh auth login`):
 
 ```bash
 npm run publicar            # o: bash scripts/publicar.sh [nombre-del-repo] [public|private]
