@@ -2,18 +2,20 @@
 //   flows : un registro por flujo (nombre, origen, grafo actual…)
 //   meta  : datos ligeros de cada ejecución (la lista), con índice por flujo
 //   data  : grafo y bytes de salida de cada ejecución (solo se lee al abrirla)
+//   chats : conversaciones con el asistente, con índice por flujo
 let dbp: Promise<IDBDatabase> | null = null
 
 export function db(): Promise<IDBDatabase> {
   if (!dbp) {
     dbp = new Promise((resolve, reject) => {
       if (typeof indexedDB === 'undefined') return reject(new Error('IndexedDB no disponible'))
-      const r = indexedDB.open('cipherflow', 2)
+      const r = indexedDB.open('cipherflow', 3)
       r.onupgradeneeded = () => {
         const d = r.result, t = r.transaction!
         if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta', { keyPath: 'id' }).createIndex('at', 'at')
         if (!d.objectStoreNames.contains('data')) d.createObjectStore('data', { keyPath: 'id' })
         if (!d.objectStoreNames.contains('flows')) d.createObjectStore('flows', { keyPath: 'id' })
+        if (!d.objectStoreNames.contains('chats')) d.createObjectStore('chats', { keyPath: 'id' }).createIndex('flowKey', 'flowKey')
         const meta = t.objectStore('meta')
         if (!meta.indexNames.contains('flowId')) meta.createIndex('flowId', 'flowId')
       }

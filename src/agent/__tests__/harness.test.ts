@@ -57,3 +57,21 @@ describe('runStructured', () => {
     expect(r.errors).toEqual(['«n» debe ser un número'])
   })
 })
+
+describe('retryAfter (límite de Groq)', () => {
+  it('lee la espera en segundos y en minutos', async () => {
+    const { retryAfter } = await import('../llm')
+    expect(retryAfter('Rate limit reached ... Please try again in 7.66s. Need more tokens?')).toBeCloseTo(7.66)
+    expect(retryAfter('Please try again in 1m2.5s')).toBeCloseTo(62.5)
+    expect(retryAfter('otro error')).toBeNull()
+  })
+})
+
+describe('jsonClosed (parada temprana del modelo local)', () => {
+  it('detecta cuándo el objeto JSON ya está completo', async () => {
+    const { jsonClosed } = await import('../webnnLLM')
+    expect(jsonClosed('{"a": {"b": "}"}')).toBe(false)
+    expect(jsonClosed('texto {"a": {"b": "}"}} y más')).toBe(true)
+    expect(jsonClosed('sin json')).toBe(false)
+  })
+})

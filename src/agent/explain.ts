@@ -1,7 +1,7 @@
 // «Explicar este bloque»: el modelo explica qué hizo una operación (o por qué falló) y declara
 // qué valores cita. El harness comprueba que cada cita exista de verdad en la entrada, la
 // salida o los parámetros del bloque; las inventadas se descartan (honestidad verificable).
-import type { AgentConfig, CompleteFn } from './llm'
+import type { AgentConfig, CompleteFn, Message } from './llm'
 import { recordMetric, runStructured, type Validation } from './harness'
 
 export interface ExplainContext {
@@ -59,6 +59,52 @@ Qué hace: ${ctx.description}
 Parámetros: ${JSON.stringify(ctx.params)}
 Entrada: ${clip(ctx.inputText || '(vacía)', 700)}
 ${ctx.error ? `ERROR: ${ctx.error}` : `Salida: ${clip(ctx.outputText || '(vacía)', 700)}`}` },
+    ],
+  })
+  if (res.value?.rejected.length) recordMetric('citationsRejected', res.value.rejected.length)
+  return res.value
+}
+
+// ── Preguntas libres sobre un bloque o el flujo (chat) ──────────────────────────
+export interface Answer extends Explanation { followups: string[] }
+
+const ASK_HINT = 'Formato: {"respuesta": "texto en español, breve", "citas": ["valores exactos que mencionas"], "sugerencias": ["hasta 3 pedidos cortos que el usuario podría hacer después"]}'
+
+export function validateAnswer(obj: any, corpus: string): Validation<Answer> {
+  const v = validateExplanation({ explicacion: obj?.respuesta ?? obj?.explicacion, citas: obj?.citas }, corpus)
+  if (!v.ok) return { ok: false, errors: v.errors.map(e => e.replace('«explicacion»', '«respuesta»')) }
+  const followups: string[] = (Array.isArray(obj.sugerencias) ? obj.sugerencias : [])
+    .filter((s: unknown): s is string => typeof s === 'string' && !!s.trim()).map((s: string) => s.trim()).filter((s: string) => s.length <= 90).slice(0, 3)
+  return { ok: true, value: { ...v.value, followups } }
+}
+
+export interface AskRequest {
+  question: string
+  /** Qué se pregunta: los datos reales del bloque o del flujo, ya en texto */
+  subject: 'bloque' | 'flujo'
+  context: string
+  /** Texto contra el que se verifican las citas */
+  corpus: string
+  /** Turnos anteriores de la conversación (solo texto), para dar continuidad */
+  history?: Message[]
+  config: AgentConfig
+  complete: CompleteFn
+  signal?: AbortSignal
+}
+
+/** Responde una pregunta con los datos reales; las citas que no aparezcan en ellos se descartan. */
+export async function askAI(req: AskRequest): Promise<Answer | null> {
+  const res = await runStructured<Answer>({
+    config: req.config, complete: req.complete, signal: req.signal, formatHint: ASK_HINT, maxAttempts: 2,
+    validate: o => validateAnswer(o, req.corpus),
+    messages: [
+      { role: 'system', content: `Eres el asistente de CipherFlow, un editor visual de flujos criptográficos con operaciones de CyberChef. Respondes preguntas sobre ${req.subject === 'bloque' ? 'un bloque concreto' : 'el flujo abierto'} usando sus datos reales, como un profesor de criptografía: claro, breve (2 a 6 frases) y en español.
+- Relaciona la respuesta con los valores concretos. Si algo falla, explica la causa más probable y cómo corregirla.
+- En "citas" pon los valores exactos (hex, textos, números) que mencionas; deben aparecer tal cual en los datos. No inventes valores.
+- En "sugerencias" propone hasta 3 siguientes pasos útiles, como pedidos cortos en imperativo (p. ej. "Añade el descifrado para comprobarlo").
+- Responde SOLO con JSON. ${ASK_HINT}` },
+      ...(req.history ?? []).slice(-6),
+      { role: 'user', content: `Datos reales del ${req.subject}:\n${req.context}\n\nPregunta: ${req.question}` },
     ],
   })
   if (res.value?.rejected.length) recordMetric('citationsRejected', res.value.rejected.length)

@@ -10,7 +10,7 @@ import type { OpNodeT, Result } from '../engine/types'
 const cache = new Map<string, Explanation>()
 
 /** Resalta las citas verificadas contra los datos del bloque y tacha las que no aparecen en ellos. */
-function highlight(text: string, cites: string[], rejected: string[]): ReactNode[] {
+export function highlight(text: string, cites: string[], rejected: string[]): ReactNode[] {
   const bad = new Set(rejected.map(r => r.toLowerCase()))
   const list = [...new Set([...cites, ...rejected])].filter(c => c.length > 1).sort((a, b) => b.length - a.length)
   if (!list.length) return [text]

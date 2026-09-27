@@ -1,16 +1,17 @@
 // Puente entre el agente y la app: catálogo real, ejecución de flujos candidatos en el motor
 // (fuera del lienzo) y contexto de un bloque para «Explicar».
-import { defaultArgs, opConfig } from '../engine/cyberchef'
-import { EXCLUDED, buildCatalog, opInfo } from '../engine/catalog'
+import { defaultArgs, namedArgs, opConfig } from '../engine/cyberchef'
+import { EXCLUDED, buildCatalog, customDefaults, isCustom, opInfo, type CustomOp } from '../engine/catalog'
 import { inPort, runGraph } from '../engine/graph'
 import { buildFlow } from '../io'
 import { fromUtf8, isPrintable, toHex } from '../lib/bytes'
 import type { DataEdgeT, OpNodeT, Result } from '../engine/types'
 import { edgeId } from '../state/store'
-import { layoutFlow, type AIFlow } from './flowSpec'
+import { layoutFlow, type AIBlock, type AIFlow } from './flowSpec'
 import { engineCatalog, type Catalog } from './catalog'
 import type { ExecuteFn, NodeOutcome } from './flowAgent'
-import type { ExplainContext } from './explain'
+import { corpusOf, type ExplainContext } from './explain'
+import type { SameBlock } from './steps'
 
 let cat: Catalog | null = null
 export function catalog(): Catalog {
@@ -66,8 +67,7 @@ export interface CurrentFlow {
 }
 
 /** Traduce el lienzo al formato del agente (keys b1, b2…; solo parámetros distintos del valor por defecto). */
-export function describeCurrent(nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>): CurrentFlow | null {
-  if (!nodes.length) return null
+export function describeCurrent(nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>): CurrentFlow {
   const cat = catalog()
   const keyOf = new Map<string, string>(), ids: Record<string, string> = {}
   nodes.forEach((n, i) => { const k = 'b' + (i + 1); keyOf.set(n.id, k); ids[k] = n.id })
@@ -111,7 +111,7 @@ export function describeCurrent(nodes: OpNodeT[], edges: DataEdgeT[], results: R
 }
 
 /** Lleva el flujo del agente al lienzo reutilizando los nodos existentes (mismo id y posición). */
-export function applyToCanvas(f: AIFlow, cur: CurrentFlow): { nodes: OpNodeT[]; edges: DataEdgeT[] } {
+export function applyToCanvas(f: AIFlow, cur: CurrentFlow): { nodes: OpNodeT[]; edges: DataEdgeT[]; ids: Record<string, string> } {
   const { nodes, map } = buildFlow(layoutFlow(f))
   const prev = new Map(cur.nodes.map(n => [n.id, n]))
   const idOf: Record<string, string> = {}
@@ -143,5 +143,47 @@ export function applyToCanvas(f: AIFlow, cur: CurrentFlow): { nodes: OpNodeT[]; 
     const source = idOf[l.from], target = idOf[l.to], h = 'in' + l.port
     return { id: edgeId(source, target, h), source, target, sourceHandle: 'out', targetHandle: h, type: 'data' as const }
   })
-  return { nodes: out, edges }
+  return { nodes: out, edges, ids: idOf }
+}
+
+// ── Chat: comparar versiones, flujo actual y contexto para preguntas ────────────
+/** ¿Dos versiones de un bloque son iguales? Compara con los valores por defecto aplicados. */
+export const sameBlock: SameBlock = (a, b) => {
+  if (a.op !== b.op) return false
+  if (isCustom(a.op)) {
+    const d = customDefaults(a.op as CustomOp) ?? {}
+    const pick = (p?: Record<string, any>) => { const x = { ...d, ...p }; return JSON.stringify(Object.keys(x).sort().map(k => [k, x[k] ?? null])) }
+    return pick(a.params) === pick(b.params)
+  }
+  return JSON.stringify(namedArgs(a.op, a.args ?? {})) === JSON.stringify(namedArgs(b.op, b.args ?? {}))
+}
+
+/** El flujo abierto en el formato del agente, con los datos largos ya restituidos. */
+export function currentAsFlow(cur: CurrentFlow): AIFlow {
+  const j = JSON.parse(cur.json) as { blocks: AIBlock[]; links: [string, string, number][] }
+  return cur.expand({ title: '', blocks: j.blocks, links: j.links.map(([from, to, port]) => ({ from, to, port })), checks: [] })
+}
+
+export interface AskContext { subject: 'bloque' | 'flujo'; label: string; context: string; corpus: string }
+
+/** Datos reales de un bloque del lienzo, para preguntarle a la IA sobre él. */
+export function blockAskContext(nodeId: string, nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>): AskContext | null {
+  const node = nodes.find(n => n.id === nodeId)
+  if (!node) return null
+  const e = edges.find(x => x.target === nodeId && inPort(x) === 0)
+  const ctx = explainContext(node, results[nodeId], e ? results[e.source] : undefined)
+  const clip = (s: string) => (s.length > 700 ? s.slice(0, 700) + ` … (${s.length - 700} caracteres más)` : s)
+  return {
+    subject: 'bloque', label: ctx.op,
+    context: `Operación: ${ctx.op} (${ctx.category})\nQué hace: ${ctx.description}\nParámetros: ${JSON.stringify(ctx.params)}\n` +
+      `Entrada: ${clip(ctx.inputText || '(vacía)')}\n${results[nodeId] ? (ctx.error ? `ERROR: ${ctx.error}` : `Salida: ${clip(ctx.outputText || '(vacía)')}`) : 'Aún no se ha ejecutado.'}`,
+    corpus: corpusOf(ctx),
+  }
+}
+
+/** El flujo abierto (bloques, cables y salidas actuales), para preguntar sobre él en conjunto. */
+export function flowAskContext(cur: CurrentFlow, name: string): AskContext {
+  const context = `Flujo «${name}» (keys b1, b2…; solo aparecen los parámetros distintos del valor por defecto):\n${cur.json}\n` +
+    (cur.outputs.length ? `Salidas actuales:\n${cur.outputs.join('\n')}` : 'Sin salidas.')
+  return { subject: 'flujo', label: name, context, corpus: context }
 }

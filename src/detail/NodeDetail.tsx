@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, Copy, RefreshCw, Sparkles, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, MessageSquare, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useStore, type DetailTab } from '../state/store'
 import { catColor, opInfo } from '../engine/catalog'
 import { dishString, opConfig, presentHTML } from '../engine/cyberchef'
@@ -38,6 +38,7 @@ export default function NodeDetail() {
   const updateData = useStore(s => s.updateData)
   const readOnly = useStore(s => s.mode === 'executions')
   const aiEnabled = useAgentStore(s => s.enabled)
+  const askAbout = useAgentStore(s => s.askAbout)
   /** Bloque (y resultado) para el que se pidió una explicación de la IA. */
   const [explainFor, setExplainFor] = useState<string | null>(null)
   const [html, setHtml] = useState<string | null>(null)
@@ -104,13 +105,18 @@ export default function NodeDetail() {
             <p className="truncate text-[10.5px] uppercase tracking-wider text-muted">{info.cat}{cfg && `, entra ${cfg.inputType} y sale ${cfg.outputType}`}{readOnly && <span className="text-green"> · ejecución guardada (solo lectura)</span>}</p>
           </div>
           {aiEnabled && res && (
-            <button className="btn whitespace-nowrap hover:!border-purple/50 hover:!text-purple" onClick={() => { setExplainFor(`${node.id}:${res.serial}`); setTab('proc') }} title="Explicar qué hizo este bloque con sus datos reales">
+            <button className="btn whitespace-nowrap hover:!border-purple/50 hover:!text-purple" onClick={() => { setExplainFor(`${node.id}:${res.serial}`); setTab('proc') }} title="Explicar qué hizo este bloque con sus datos reales" aria-label="Explicar este bloque">
               <Sparkles size={12} /><span className="hidden sm:inline">Explicar</span>
             </button>
           )}
-          <button className="btn btn-icon" disabled={pos <= 0} onClick={() => open(order[pos - 1])} aria-label="Bloque anterior"><ChevronLeft size={14} /></button>
-          <button className="btn btn-icon" disabled={pos >= order.length - 1} onClick={() => open(order[pos + 1])} aria-label="Bloque siguiente"><ChevronRight size={14} /></button>
-          <button className="btn" onClick={close}><X size={13} /> Cerrar</button>
+          {aiEnabled && !readOnly && (
+            <button className="btn whitespace-nowrap hover:!border-purple/50 hover:!text-purple" onClick={() => { askAbout({ id: node.id, label: title }); close() }} title="Abrir el chat con este bloque como contexto" aria-label="Preguntar a la IA sobre este bloque">
+              <MessageSquare size={12} /><span className="hidden sm:inline">Preguntar</span>
+            </button>
+          )}
+          <button className="btn btn-icon max-[359px]:hidden" disabled={pos <= 0} onClick={() => open(order[pos - 1])} aria-label="Bloque anterior"><ChevronLeft size={14} /></button>
+          <button className="btn btn-icon max-[359px]:hidden" disabled={pos >= order.length - 1} onClick={() => open(order[pos + 1])} aria-label="Bloque siguiente"><ChevronRight size={14} /></button>
+          <button className="btn" onClick={close} aria-label="Cerrar"><X size={13} /><span className="hidden sm:inline">Cerrar</span></button>
         </header>
         <nav className="flex border-b border-border md:hidden">
           {TABS.map(([t, l]) => (
