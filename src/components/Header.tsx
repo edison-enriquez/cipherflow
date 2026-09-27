@@ -1,4 +1,5 @@
-import { Github, LayoutList, Menu, Moon, Plus, Sun, Upload } from 'lucide-react'
+import { Github, LayoutList, Menu, Moon, Plus, Sparkles, Sun, Upload } from 'lucide-react'
+import { useAgentStore } from '../agent/config'
 import { EXAMPLE_GROUPS } from '../io'
 import { LABS } from '../labs'
 import { Tag } from './ui'
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export default function Header({ theme, onToggleTheme, onHome, onExample, onLab, onNew, onImport, onMenu, home, showMenu }: Props) {
+  const aiOn = useAgentStore(s => s.enabled)
+  const openAI = useAgentStore(s => s.setSettingsOpen)
   return (
     <header className="z-20 flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto sm:gap-2 border-b border-border bg-base px-3 sm:px-4">
       {showMenu && <button className="btn btn-icon md:hidden" onClick={onMenu} aria-label="Abrir el panel lateral"><Menu size={14} /></button>}
@@ -56,6 +59,10 @@ export default function Header({ theme, onToggleTheme, onHome, onExample, onLab,
       </select>
       <button className="btn" onClick={onNew} title="Crear un flujo vacío"><Plus size={13} /><span className="hidden sm:inline">Nuevo</span></button>
       <button className="btn" onClick={onImport} title="Importar un flujo o una receta de CyberChef como flujo nuevo"><Upload size={13} /><span className="hidden sm:inline">Importar</span></button>
+      <button className="btn relative" onClick={() => openAI(true)} title={aiOn ? 'IA activada · ajustes' : 'Activar la IA (opcional)'} aria-label="Ajustes de IA">
+        <Sparkles size={13} /><span className="hidden sm:inline">IA</span>
+        <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${aiOn ? 'bg-green' : 'bg-border'}`} aria-hidden="true" />
+      </button>
       <a className="btn btn-icon hidden sm:inline-flex" href="https://github.com/edison-enriquez/cipherflow" target="_blank" rel="noreferrer" aria-label="Código en GitHub" title="Código en GitHub"><Github size={13} /></a>
       <button className="btn btn-icon" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
         {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}

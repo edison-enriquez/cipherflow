@@ -6,8 +6,8 @@ import { serializeGraph, type SavedGraph } from './runner'
 import { newId, req, tx } from './db'
 import { deleteExecutionsOfFlow } from './history'
 
-export type FlowOrigin = 'lab' | 'example' | 'own' | 'import'
-export const ORIGIN_LABEL: Record<FlowOrigin, string> = { lab: 'Laboratorio', example: 'Ejemplo', own: 'Propio', import: 'Importado' }
+export type FlowOrigin = 'lab' | 'example' | 'own' | 'import' | 'ai'
+export const ORIGIN_LABEL: Record<FlowOrigin, string> = { lab: 'Laboratorio', example: 'Ejemplo', own: 'Propio', import: 'Importado', ai: 'IA' }
 
 export interface Flow {
   id: string

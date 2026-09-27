@@ -22,6 +22,11 @@ Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta
   - *Redes:* anatomía de una petición HTTP (URL, User-Agent y credenciales Basic en claro), petición HTTP en vivo, consulta DNS en vivo (DoH), paquete DNS capa por capa (Ethernet → IPv4 → UDP → DNS), three-way handshake TCP, subredes IP y ClientHello TLS con huella JA3. Los dos ejemplos «en vivo» hacen peticiones reales desde el navegador.
 - **Persistencia local, temas claro/oscuro, paleta con buscador y panel de registro.** Diseño responsive (paleta como drawer en móvil).
 - **Flujos guardados y ejecuciones (al estilo de n8n).** **Mis flujos** lista todos tus flujos (búsqueda, orden, favoritos, duplicar, exportar, borrar). Cada laboratorio, ejemplo, importación o flujo nuevo es un flujo propio que se **guarda solo** mientras lo editas, así que cambiar de diseño no borra nada; al reabrir un laboratorio vuelves a tu progreso (y puedes reiniciarlo). Cada flujo tiene sus pestañas **Editor | Ejecuciones**: cada ejecución estable guarda una foto del grafo y la salida de cada bloque, que se puede abrir en solo lectura con su panel de detalle, restaurar en el editor, fijar o exportar; también hay una vista de **Todas las ejecuciones**. Las rutas van en la URL (`#/`, `#/flujo/<id>`, `#/flujo/<id>/ejecuciones`, `#/ejecuciones`). Todo se guarda en IndexedDB, en el navegador.
+- **Asistente con IA (opcional, solo en el navegador).** Botón **IA** para elegir proveedor: **Groq** (nube, con tu API key, que se guarda solo en el navegador) o **WebLLM** (modelo local en la GPU; nada sale del equipo). Sin configurar, la app funciona igual.
+  - **Asistente de flujos** (panel a la derecha): describes el flujo en español y un orquestador lo planifica, lo construye, lo **valida** contra el catálogo real (operaciones, parámetros, cables), lo **ejecuta en el motor de CyberChef** y lo **repara con los errores reales** hasta 3 veces; el resultado se guarda como flujo nuevo con origen «IA».
+  - **Explicar** en el panel de detalle: explica un bloque con sus datos reales; solo resalta valores que existen de verdad en el bloque y tacha los que no.
+  - **¡Lo lograste!**: cada laboratorio comprueba su criterio de éxito con los datos reales (sin IA) y lo anota en su ejecución.
+  - El harness (salida JSON, validación, reintento con feedback, herramientas, telemetría) se prueba sin red con `npm test`. Métricas en la consola: `__cipherflowAgent.getMetrics()`.
 
 ## Arquitectura
 
@@ -39,6 +44,9 @@ src/state/              store.ts (Zustand), runner.ts (auto-ejecución, paso a p
                         db.ts (IndexedDB), flows.ts (flujos y autoguardado), history.ts (ejecuciones),
                         recorder.ts (registro automático)
 src/router.ts           rutas en el hash de la URL
+src/agent/               llm.ts (Groq + WebLLM), harness.ts, catalog.ts, flowSpec.ts (validación),
+                        flowAgent.ts (orquestador), explain.ts, runtime.ts; tests en __tests__/
+src/labCheck.ts         criterio de éxito de cada laboratorio
 src/components/         Header, Palette, Transport, LogPanel, Toast, IODialog, ui.tsx
 src/hooks/              useTheme.ts (tema + media queries)
 src/io.ts               ejemplos de criptografía, importación (flujos + recetas) y exportación

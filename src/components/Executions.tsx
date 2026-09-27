@@ -117,6 +117,7 @@ function Row({ m, title, active, onOpen }: { m: ExecMeta; title: string; active:
       <span className="flex flex-col items-end gap-1 text-[10.5px] text-muted">
         <span className="whitespace-nowrap">{when(m.at)}</span>
         <span className="flex items-center gap-1">
+          {m.labPassed && <span className="uppercase tracking-wider text-green" title="Cumplía el criterio de éxito del laboratorio">reto ✓</span>}
           {m.mode === 'manual' && <span className="uppercase tracking-wider">guardada</span>}
           {m.pinned && <Pin size={11} className="text-green" aria-label="Fijada" />}
         </span>

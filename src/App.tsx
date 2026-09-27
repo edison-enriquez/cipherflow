@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import Header from './components/Header'
 import Palette from './components/Palette'
@@ -23,6 +23,11 @@ import { LABS, buildLab } from './labs'
 import LabBrief from './components/LabBrief'
 import { go, useRoute } from './router'
 import { useMedia, useTheme } from './hooks/useTheme'
+import AssistantPanel from './components/AssistantPanel'
+import AgentSettings from './components/AgentSettings'
+import { useAgentStore } from './agent/config'
+import { labPassed } from './labCheck'
+import { CheckCircle2, X } from 'lucide-react'
 
 const DEFAULT_EXAMPLE = 'AES-CBC por dentro'
 /** «1 · El pingüino de ECB» → «Lab 1 · El pingüino de ECB» */
@@ -62,6 +67,18 @@ export default function App() {
   const hasNodes = useStore(s => s.nodes.length > 0)
   const origin = useStore(s => s.flowOrigin)
   const lab = origin?.origin === 'lab' && origin.key ? LABS[origin.key] ?? null : null
+  const assistantOpen = useAgentStore(s => s.assistantOpen)
+  // Criterio de éxito del laboratorio, comprobado con los datos reales (sin IA)
+  const labNodes = useStore(s => s.nodes)
+  const labResults = useStore(s => s.results)
+  const passed = useMemo(() => mode === 'editor' && !!lab && labPassed(lab.id, labNodes, labResults), [mode, lab, labNodes, labResults])
+  const [passBanner, setPassBanner] = useState(false)
+  const wasPassed = useRef(false)
+  useEffect(() => {
+    if (passed && !wasPassed.current) setPassBanner(true)
+    if (!passed) setPassBanner(false)
+    wasPassed.current = passed
+  }, [passed])
 
   const fit = useCallback(() => setTimeout(() => rf.fitView({ padding: 0.25, duration: 250 }), 60), [rf])
 
@@ -232,7 +249,7 @@ export default function App() {
           <div className="h-0.5 w-56 overflow-hidden bg-border"><div className="h-full w-1/3 animate-pulse bg-green" /></div>
         </div>
       ) : mode === 'home' ? (
-        <main className="flex min-h-0 flex-1"><FlowsPage onNew={newFlow} onImport={() => setIo('import')} /></main>
+        <main className="relative flex min-h-0 flex-1"><FlowsPage onNew={newFlow} onImport={() => setIo('import')} />{assistantOpen && <AssistantPanel overlay />}</main>
       ) : (
         <main className="relative flex min-h-0 flex-1">
           {mode === 'executions'
@@ -257,7 +274,15 @@ export default function App() {
               )}
             </div>
           </div>
+          {assistantOpen && mode === 'editor' && <AssistantPanel />}
         </main>
+      )}
+      {passBanner && lab && mode === 'editor' && (
+        <div role="status" aria-label="Laboratorio superado" className="fixed bottom-20 left-1/2 z-30 flex w-[min(92vw,560px)] -translate-x-1/2 items-center gap-3 border border-green/50 bg-base px-4 py-3 shadow-2xl">
+          <CheckCircle2 size={20} className="shrink-0 text-green" />
+          <p className="flex-1 text-[13px]"><b className="text-green">¡Lo lograste!</b> {lab.criterio}</p>
+          <button className="btn btn-icon" onClick={() => setPassBanner(false)} aria-label="Cerrar el aviso"><X size={13} /></button>
+        </div>
       )}
       {lab && !briefOpen && mode === 'editor' && (
         <button
@@ -265,11 +290,12 @@ export default function App() {
           onClick={() => setBriefOpen(true)}
           title="Ver la consigna del laboratorio"
         >
-          Reto: {lab.titulo.split('·')[0].trim()} ↑
+          Reto: {lab.titulo.split('·')[0].trim()} {passed ? '✓' : '↑'}
         </button>
       )}
       {lab && briefOpen && mode === 'editor' && <LabBrief lab={lab} onClose={() => setBriefOpen(false)} />}
       <NodeDetail />
+      <AgentSettings />
       <IODialog
         mode={io}
         exportText={io === 'export' ? exportText(nodes, edges) : ''}

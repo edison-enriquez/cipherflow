@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, Copy, Download, Eraser, History, Loader2, MoreHorizontal, RotateCcw, SquarePen, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, Eraser, History, Loader2, MoreHorizontal, RotateCcw, Sparkles, SquarePen, Trash2 } from 'lucide-react'
+import { useAgentStore } from '../agent/config'
 import { useStore } from '../state/store'
 import { ORIGIN_LABEL, deleteFlow, duplicateFlow, type FlowOrigin } from '../state/flows'
 import { useExecutions } from '../state/recorder'
@@ -14,6 +15,8 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
   const save = useStore(s => s.saveState)
   const scope = useStore(s => s.execScope)
   const execs = useExecutions()
+  const assistant = useAgentStore(s => s.assistantOpen)
+  const setAssistant = useAgentStore(s => s.setAssistantOpen)
   const [editing, setEditing] = useState(false)
   const [menu, setMenu] = useState(false)
   const input = useRef<HTMLInputElement>(null)
@@ -74,6 +77,11 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
           <History size={13} /><span className="hidden sm:inline">Ejecuciones</span>{count > 0 && <span className="text-[10.5px] opacity-80">{count}</span>}
         </button>
       </div>
+      {mode === 'editor' && (
+        <button className={`btn shrink-0 whitespace-nowrap ${assistant ? 'btn-on' : ''}`} onClick={() => setAssistant(!assistant)} aria-pressed={assistant} title="Asistente de flujos con IA">
+          <Sparkles size={13} /><span className="hidden lg:inline">Asistente</span>
+        </button>
+      )}
       <div className="relative shrink-0" ref={menuRef}>
         <button className="btn btn-icon" onClick={() => setMenu(v => !v)} aria-label="Más acciones del flujo" aria-expanded={menu}><MoreHorizontal size={14} /></button>
         {menu && (

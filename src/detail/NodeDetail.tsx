@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, Copy, RefreshCw, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useStore, type DetailTab } from '../state/store'
 import { catColor, opInfo } from '../engine/catalog'
 import { dishString, opConfig, presentHTML } from '../engine/cyberchef'
@@ -10,6 +10,8 @@ import DataView from './DataView'
 import Params from './Params'
 import Process from './Process'
 import type { ExplainCtx } from '../explainers'
+import ExplainCard from './ExplainCard'
+import { useAgentStore } from '../agent/config'
 
 const TABS: [DetailTab, string][] = [['in', 'Entrada'], ['par', 'Parámetros'], ['out', 'Salida'], ['proc', 'Proceso']]
 
@@ -35,6 +37,9 @@ export default function NodeDetail() {
   const showToast = useStore(s => s.showToast)
   const updateData = useStore(s => s.updateData)
   const readOnly = useStore(s => s.mode === 'executions')
+  const aiEnabled = useAgentStore(s => s.enabled)
+  /** Bloque (y resultado) para el que se pidió una explicación de la IA. */
+  const [explainFor, setExplainFor] = useState<string | null>(null)
   const [html, setHtml] = useState<string | null>(null)
   const [ctx, setCtx] = useState<ExplainCtx | null>(null)
 
@@ -98,6 +103,11 @@ export default function NodeDetail() {
             <h2 id="nd-title" className="truncate text-[17px] font-bold">{title}</h2>
             <p className="truncate text-[10.5px] uppercase tracking-wider text-muted">{info.cat}{cfg && `, entra ${cfg.inputType} y sale ${cfg.outputType}`}{readOnly && <span className="text-green"> · ejecución guardada (solo lectura)</span>}</p>
           </div>
+          {aiEnabled && res && (
+            <button className="btn whitespace-nowrap hover:!border-purple/50 hover:!text-purple" onClick={() => { setExplainFor(`${node.id}:${res.serial}`); setTab('proc') }} title="Explicar qué hizo este bloque con sus datos reales">
+              <Sparkles size={12} /><span className="hidden sm:inline">Explicar</span>
+            </button>
+          )}
           <button className="btn btn-icon" disabled={pos <= 0} onClick={() => open(order[pos - 1])} aria-label="Bloque anterior"><ChevronLeft size={14} /></button>
           <button className="btn btn-icon" disabled={pos >= order.length - 1} onClick={() => open(order[pos + 1])} aria-label="Bloque siguiente"><ChevronRight size={14} /></button>
           <button className="btn" onClick={close}><X size={13} /> Cerrar</button>
@@ -145,6 +155,7 @@ export default function NodeDetail() {
             </Col>
           </div>
           <div className={`p-4 md:block ${tab === 'proc' ? 'block' : 'hidden'}`}>
+            {aiEnabled && res && explainFor === `${node.id}:${res.serial}` && <ExplainCard node={node} res={res} input={in0 ?? undefined} />}
             <Process op={node.data.op} res={res} input={in0 ?? undefined} ctx={ctx} />
           </div>
         </div>

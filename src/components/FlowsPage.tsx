@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Copy, Download, FolderOpen, Pencil, Plus, Search, Star, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, FolderOpen, Pencil, Plus, Search, Sparkles, Star, Trash2, Upload } from 'lucide-react'
+import { useAgentStore } from '../agent/config'
 import { ORIGIN_LABEL, deleteFlow, downloadJSON, duplicateFlow, patchFlow, useFlows, type Flow } from '../state/flows'
 import { useExecutions } from '../state/recorder'
 import type { ExecMeta } from '../state/history'
@@ -17,7 +18,7 @@ export function when(at: number) {
   return d.toLocaleDateString('es', { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' })
 }
 
-const ORIGIN_COLOR: Record<string, string> = { lab: 'text-green border-green/40', example: 'text-blue border-blue/40', own: 'text-muted border-border', import: 'text-yellow border-yellow/40' }
+const ORIGIN_COLOR: Record<string, string> = { lab: 'text-green border-green/40', example: 'text-blue border-blue/40', own: 'text-muted border-border', import: 'text-yellow border-yellow/40', ai: 'text-purple border-purple/40' }
 
 /** «Mis flujos»: la página de inicio, como el listado de workflows de n8n. */
 export default function FlowsPage({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
@@ -55,6 +56,7 @@ export default function FlowsPage({ onNew, onImport }: { onNew: () => void; onIm
             <p className="mt-1 text-xs text-muted">Cada laboratorio, ejemplo o flujo propio se guarda solo mientras lo editas, en este navegador.</p>
           </div>
           <button className="btn" onClick={onImport}><Upload size={13} /> Importar</button>
+          <button className="btn" onClick={() => useAgentStore.getState().setAssistantOpen(true)}><Sparkles size={13} /> Nuevo flujo con IA</button>
           <button className="btn btn-primary" onClick={onNew}><Plus size={13} /> Nuevo flujo</button>
         </div>
         <div className="mb-3 flex border-b border-border text-[11px] uppercase tracking-wider" role="tablist">

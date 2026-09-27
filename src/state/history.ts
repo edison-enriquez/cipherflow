@@ -25,6 +25,8 @@ export interface ExecMeta {
   blocks: number
   ms: number
   sig: string
+  /** El flujo cumplía el criterio de éxito de su laboratorio. */
+  labPassed?: boolean
 }
 
 export interface ExecNodeData {
@@ -101,7 +103,7 @@ export const graphSig = (nodes: OpNodeT[], edges: DataEdgeT[]) =>
   JSON.stringify([nodes.map(n => [n.id, n.data.op, n.data.args ?? n.data.params]).sort(), edges.map(e => [e.source, e.target, e.targetHandle ?? 'in0']).sort()])
 
 /** Guarda una ejecución. Devuelve su id, o null si se omitió por repetida (solo en modo automático). */
-export async function recordExecution(flowId: string | null, nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>, name: string, mode: ExecMeta['mode']): Promise<string | null> {
+export async function recordExecution(flowId: string | null, nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>, name: string, mode: ExecMeta['mode'], extra: Partial<Pick<ExecMeta, 'labPassed'>> = {}): Promise<string | null> {
   if (!nodes.length) return null
   const sig = graphSig(nodes, edges)
   const recent = (await listExecutions()).filter(m => (m.flowId ?? null) === flowId)
@@ -119,7 +121,7 @@ export async function recordExecution(flowId: string | null, nodes: OpNodeT[], e
     if (n.data.op !== '__output') ms += r.ms ?? 0
   }
   const id = newId('x')
-  const meta: ExecMeta = { id, ...(flowId ? { flowId } : {}), at: Date.now(), name, mode, pinned: mode === 'manual', ok: errors === 0, errors, blocks: nodes.length, ms: Math.round(ms * 10) / 10, sig }
+  const meta: ExecMeta = { id, ...(flowId ? { flowId } : {}), at: Date.now(), name, mode, pinned: mode === 'manual', ok: errors === 0, errors, blocks: nodes.length, ms: Math.round(ms * 10) / 10, sig, ...extra }
   const data: ExecData = { id, graph: serializeGraph(nodes, edges), results: out }
   await tx(['meta', 'data'], 'readwrite', t => { t.objectStore('meta').put(meta); t.objectStore('data').put(data) })
   await prune()
