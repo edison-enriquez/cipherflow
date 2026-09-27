@@ -5,6 +5,7 @@ import { ORIGIN_LABEL, deleteFlow, downloadJSON, duplicateFlow, patchFlow, useFl
 import { useExecutions } from '../state/recorder'
 import type { ExecMeta } from '../state/history'
 import { go } from '../router'
+import { EXAMPLE_GROUPS } from '../examples'
 import { useStore } from '../state/store'
 
 export function when(at: number) {
@@ -19,6 +20,22 @@ export function when(at: number) {
 }
 
 const ORIGIN_COLOR: Record<string, string> = { lab: 'text-green border-green/40', example: 'text-blue border-blue/40', own: 'text-muted border-border', import: 'text-yellow border-yellow/40', ai: 'text-purple border-purple/40' }
+
+const EXAMPLE_COUNT = EXAMPLE_GROUPS.reduce((s, g) => s + Object.keys(g.examples).length, 0)
+
+/** Pestañas de la página de inicio: flujos propios, galería de ejemplos y todas las ejecuciones. */
+export function HomeTabs({ active }: { active: 'flows' | 'examples' }) {
+  const flows = useFlows()
+  const execs = useExecutions()
+  const tab = (on: boolean) => on ? '-mb-px border-b-2 border-green px-3 py-2 font-bold text-green' : 'px-3 py-2 text-muted hover:text-green'
+  return (
+    <div className="scroll-row mb-3 flex overflow-x-auto border-b border-border text-[11px] uppercase tracking-wider" role="tablist">
+      <button role="tab" aria-selected={active === 'flows'} className={`shrink-0 ${tab(active === 'flows')}`} onClick={() => go({ view: 'home' })}>Flujos <span className="font-normal opacity-80">{flows?.length ?? ''}</span></button>
+      <button role="tab" aria-selected={active === 'examples'} className={`shrink-0 ${tab(active === 'examples')}`} onClick={() => go({ view: 'examples' })}>Ejemplos <span className="font-normal opacity-80">{EXAMPLE_COUNT}</span></button>
+      <button role="tab" aria-selected="false" className={`shrink-0 ${tab(false)}`} onClick={() => go({ view: 'executions' })}>Todas las ejecuciones <span className="font-normal opacity-80">{execs.length || ''}</span></button>
+    </div>
+  )
+}
 
 /** «Mis flujos»: la página de inicio, como el listado de workflows de n8n. */
 export default function FlowsPage({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
@@ -59,10 +76,7 @@ export default function FlowsPage({ onNew, onImport }: { onNew: () => void; onIm
           <button className="btn" onClick={() => useAgentStore.getState().setAssistantOpen(true)}><Sparkles size={13} /> Nuevo flujo con IA</button>
           <button className="btn btn-primary" onClick={onNew}><Plus size={13} /> Nuevo flujo</button>
         </div>
-        <div className="mb-3 flex border-b border-border text-[11px] uppercase tracking-wider" role="tablist">
-          <button role="tab" aria-selected="true" className="-mb-px border-b-2 border-green px-3 py-2 font-bold text-green">Flujos <span className="font-normal opacity-80">{flows?.length ?? ''}</span></button>
-          <button role="tab" aria-selected="false" className="px-3 py-2 text-muted hover:text-green" onClick={() => go({ view: 'executions' })}>Todas las ejecuciones <span className="opacity-80">{execs.length || ''}</span></button>
-        </div>
+        <HomeTabs active="flows" />
         <div className="mb-3 flex flex-wrap gap-2">
           <div className="relative min-w-[12rem] flex-1">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -77,7 +91,7 @@ export default function FlowsPage({ onNew, onImport }: { onNew: () => void; onIm
         {flows === null ? <p className="p-6 text-center text-xs text-muted">Cargando…</p>
           : !flows.length ? (
             <div className="border border-dashed border-border p-8 text-center text-[13px] leading-relaxed text-muted">
-              Todavía no tienes flujos. Crea uno nuevo, o abre un laboratorio o un ejemplo desde los menús de arriba.
+              Todavía no tienes flujos. Crea uno nuevo, abre un laboratorio o <button className="text-green underline-offset-2 hover:underline" onClick={() => go({ view: 'examples' })}>explora los ejemplos</button>.
             </div>
           ) : !shown.length ? <p className="p-6 text-center text-xs text-muted">Ningún flujo coincide con la búsqueda.</p>
           : (
@@ -100,7 +114,7 @@ function FlowRow({ f, stats, current }: { f: Flow; stats?: { n: number; last?: E
     if (current) useStore.setState({ flowId: null })
   }
   return (
-    <li className={`group flex items-center gap-3 px-3 py-3 hover:bg-surface ${current ? 'bg-green/5' : ''}`}>
+    <li className={`group flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 hover:bg-surface sm:flex-nowrap ${current ? 'bg-green/5' : ''}`}>
       <button className={`shrink-0 ${f.favorite ? 'text-yellow' : 'text-muted/50 hover:text-yellow'}`} onClick={() => patchFlow(f.id, { favorite: !f.favorite })} aria-label={f.favorite ? 'Quitar de favoritos' : 'Marcar como favorito'} title="Favorito">
         <Star size={14} fill={f.favorite ? 'currentColor' : 'none'} />
       </button>
@@ -118,8 +132,9 @@ function FlowRow({ f, stats, current }: { f: Flow; stats?: { n: number; last?: E
         {stats?.last && <span className={`h-2 w-2 rounded-full ${stats.last.ok ? 'bg-[rgb(var(--c-ok))]' : 'bg-red'}`} />}
         {stats?.n ?? 0} {stats?.n === 1 ? 'ejecución' : 'ejecuciones'}
       </button>
-      <span className="flex shrink-0 gap-1 opacity-60 group-hover:opacity-100">
-        <button className="btn btn-icon" onClick={open} aria-label="Abrir" title="Abrir"><FolderOpen size={13} /></button>
+      {/* En móvil, las acciones van en su propia fila bajo el nombre */}
+      <span className="ml-[26px] flex w-full shrink-0 gap-1 sm:ml-0 sm:w-auto sm:opacity-60 sm:group-hover:opacity-100">
+        <button className="btn btn-icon hidden sm:inline-flex" onClick={open} aria-label="Abrir" title="Abrir"><FolderOpen size={13} /></button>
         <button className="btn btn-icon" onClick={rename} aria-label="Renombrar" title="Renombrar"><Pencil size={13} /></button>
         <button className="btn btn-icon" onClick={dup} aria-label="Duplicar" title="Duplicar"><Copy size={13} /></button>
         <button className="btn btn-icon" onClick={() => downloadJSON(f.name, f.graph)} aria-label="Exportar JSON" title="Exportar JSON"><Download size={13} /></button>

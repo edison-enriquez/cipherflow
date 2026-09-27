@@ -84,6 +84,9 @@
   .label { @apply text-[10.5px] font-bold uppercase tracking-widest text-muted; }
   .field-input { @apply w-full border border-border bg-base px-2.5 py-2 text-xs text-text placeholder:text-muted focus:border-green/50 focus:outline-none; }
   .tag { @apply inline-block rounded border px-1.5 text-[10.5px] leading-[1.6]; }
+  /* Fila desplazable en horizontal sin barra visible (pestañas y filtros en móvil) */
+  .scroll-row { scrollbar-width: none; }
+  .scroll-row::-webkit-scrollbar { display: none; }
   .panel-pre { @apply max-h-[46vh] overflow-auto rounded border border-border bg-base p-2.5 text-[11.5px] leading-relaxed; }
   .tbl { @apply border-collapse text-[11.5px]; }
   .tbl th { @apply border border-border bg-elevated px-2 py-1 text-left text-[10px] font-bold uppercase tracking-wider text-muted; }
@@ -125,3 +128,9 @@
 .react-flow__minimap { background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-border)); }
 .react-flow__minimap-mask { fill: rgb(var(--c-base) / 0.7); }
 .react-flow__node.selected, .react-flow__node:focus-visible { outline: none; }
+
+/* Móviles táctiles: con letra de menos de 16 px, Safari de iOS amplía la página al tocar un campo.
+   En esas pantallas los campos de texto usan 16 px (los botones y el resto no cambian). */
+@media (pointer: coarse) and (max-width: 767px) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), textarea, select { font-size: 16px !important; }
+}

@@ -12,15 +12,18 @@ import NodeDetail from './detail/NodeDetail'
 import { useStore } from './state/store'
 import { loadSaved, loadSavedName, serializeGraph, useGraphRunner, waitForRun } from './state/runner'
 import { useExecutionRecorder } from './state/recorder'
-import { createFlow, findByOrigin, getFlow, lastFlowId, listFlows, setLastFlowId, uniqueName, useFlowAutosave } from './state/flows'
+import { createFlow, findByOrigin, getFlow, lastFlowId, listFlows, pruneUntouchedTemplates, setLastFlowId, uniqueName, useFlowAutosave } from './state/flows'
 import { ExecutionBar, ExecutionsPanel } from './components/Executions'
 import FlowsPage from './components/FlowsPage'
 import FlowBar from './components/FlowBar'
 import { loadEngine } from './engine/cyberchef'
 import { buildCatalog, opInfo } from './engine/catalog'
-import { buildExample, exportText, graphFromSaved, parseImport, recipeTo } from './io'
+import { buildExample, exportText, graphFromSaved, parseImport, parsePaste, recipeTo } from './io'
+import { EXAMPLES } from './examples'
+import { useUndoHistory } from './state/undo'
 import { LABS, buildLab } from './labs'
 import LabBrief from './components/LabBrief'
+import ExamplesPage from './components/ExamplesPage'
 import { go, useRoute } from './router'
 import { useMedia, useTheme } from './hooks/useTheme'
 import AssistantPanel from './components/AssistantPanel'
@@ -33,15 +36,23 @@ const DEFAULT_EXAMPLE = 'AES-CBC por dentro'
 /** «1 · El pingüino de ECB» → «Lab 1 · El pingüino de ECB» */
 const labName = (titulo: string) => titulo.replace(/^(\d+)\s*·\s*/, 'Lab $1 · ')
 
-/** Primera vez con flujos: el trabajo que había en el navegador pasa a ser un flujo guardado. */
+/** Plantilla de un ejemplo o laboratorio: nombre con el que se abre y su grafo. */
+function template(kind: 'lab' | 'example', key: string) {
+  if (kind === 'lab' ? !LABS[key] : !EXAMPLES[key]) return null
+  const g = kind === 'lab' ? buildLab(key) : buildExample(key)
+  return { name: kind === 'lab' ? labName(LABS[key].titulo) : key, ...g }
+}
+
+/** Primera vez con flujos: el trabajo que había en el navegador pasa a ser un flujo guardado.
+ *  Además se retiran los ejemplos y laboratorios que se guardaron solo por abrirlos. */
 async function migrate() {
+  await pruneUntouchedTemplates((origin, key) => {
+    const t = origin === 'lab' || origin === 'example' ? template(origin, key) : null
+    return t && { name: t.name, graph: serializeGraph(t.nodes, t.edges) }
+  })
   if ((await listFlows()).length) return
   const saved = loadSaved()
   if (saved) await createFlow({ name: loadSavedName() || 'Mi primer flujo', origin: 'own', graph: saved })
-  else {
-    const ex = buildExample(DEFAULT_EXAMPLE)
-    await createFlow({ name: DEFAULT_EXAMPLE, origin: 'example', originKey: DEFAULT_EXAMPLE, graph: serializeGraph(ex.nodes, ex.edges) })
-  }
 }
 
 export default function App() {
@@ -50,8 +61,6 @@ export default function App() {
   const rf = useReactFlow()
   const route = useRoute()
   const canvasRef = useRef<HTMLDivElement>(null)
-  /** Bloque cuyo detalle se abre al terminar de cargar un laboratorio o ejemplo recién creado. */
-  const pendingDetail = useRef<string | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [io, setIo] = useState<'export' | 'import' | null>(null)
@@ -89,8 +98,7 @@ export default function App() {
     const st = useStore.getState()
     if (st.mode === 'executions') st.exitExecutions(false)
     const g = graphFromSaved(f.graph)
-    st.setGraph(g.nodes, g.edges)
-    st.setFlow(f.id, f.name, { origin: f.origin, key: f.originKey })
+    st.openFlow(g.nodes, g.edges, { id: f.id, name: f.name, origin: { origin: f.origin, key: f.originKey } })
     setLastFlowId(f.id)
     fit()
     return true
@@ -113,17 +121,39 @@ export default function App() {
     ;(async () => {
       const st = useStore.getState()
       if (route.view === 'none') {
-        // Sin ruta: se vuelve al último flujo usado (o al más reciente)
+        // Sin ruta: se vuelve al último flujo usado (o al más reciente); sin flujos, al ejemplo inicial
         const last = lastFlowId()
         const f = (last && await getFlow(last)) || (await listFlows())[0]
-        go(f ? { view: 'flow', id: f.id, tab: 'editor' } : { view: 'home' }, true)
+        go(f ? { view: 'flow', id: f.id, tab: 'editor' } : { view: 'template', kind: 'example', key: DEFAULT_EXAMPLE }, true)
         return
       }
-      if (route.view === 'home') { setBriefOpen(false); st.setMode('home'); return }
+      if (route.view === 'home' || route.view === 'examples') { setBriefOpen(false); st.closeDetail(); st.setMode('home'); return }
       if (route.view === 'executions') {
         setBriefOpen(false)
         setPaletteOpen(compact)
         st.enterExecutions(null)
+        return
+      }
+      if (route.view === 'template') {
+        // Si ya se guardó (porque se modificó), se abre ese flujo; si no, la plantilla como borrador
+        const saved = await findByOrigin(route.kind, route.key)
+        if (!alive) return
+        if (saved) { go({ view: 'flow', id: saved.id, tab: 'editor' }, true); return }
+        const o = st.flowOrigin
+        const same = !st.flowId && o?.origin === route.kind && o.key === route.key && (st.mode !== 'executions' || !!st.stash)
+        if (same) {
+          if (st.mode === 'executions') st.exitExecutions()
+          else if (st.mode === 'home') st.setMode('editor')
+          return
+        }
+        const t = template(route.kind, route.key)
+        if (!t) { showToast('Esa plantilla ya no existe'); go({ view: 'home' }, true); return }
+        if (st.mode === 'executions') st.exitExecutions(false)
+        st.openFlow(t.nodes, t.edges, { id: null, name: t.name, origin: { origin: route.kind, key: route.key } })
+        if (st.mode === 'home') st.setMode('editor')
+        setBriefOpen(route.kind === 'lab')
+        fit()
+        if (t.open && !compact) waitForRun().then(() => setTimeout(() => openDetail(t.open!, 'proc'), 350))
         return
       }
       if (st.flowId !== route.id && !(await loadFlow(route.id))) {
@@ -138,28 +168,67 @@ export default function App() {
       } else {
         if (s2.mode === 'executions') s2.exitExecutions()
         else if (s2.mode === 'home') s2.setMode('editor')
-        const nid = pendingDetail.current
-        pendingDetail.current = null
-        if (nid && !compact) waitForRun().then(() => setTimeout(() => openDetail(nid, 'proc'), 350))
       }
     })()
     return () => { alive = false }
   }, [ready, routeKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useGraphRunner(ready)
-  useFlowAutosave(ready)
+  // Al modificar un borrador se guarda como flujo: la URL pasa a ser la del flujo
+  useFlowAutosave(ready, id => { setLastFlowId(id); go({ view: 'flow', id, tab: 'editor' }, true) })
   useExecutionRecorder(ready)
+  useUndoHistory(ready)
 
-  /** Abre el flujo de un laboratorio o ejemplo; si no existe aún, lo crea desde la plantilla. */
-  const openTemplate = async (kind: 'lab' | 'example', key: string) => {
-    let f = await findByOrigin(kind, key)
-    if (!f) {
-      const g = kind === 'lab' ? buildLab(key) : buildExample(key)
-      f = await createFlow({ name: kind === 'lab' ? labName(LABS[key].titulo) : key, origin: kind, originKey: key, graph: serializeGraph(g.nodes, g.edges) })
-      pendingDetail.current = g.open ?? null
+  // Portapapeles del lienzo: copiar/cortar los bloques seleccionados como JSON y pegar un flujo o una receta de CyberChef
+  useEffect(() => {
+    if (!ready) return
+    const busy = (e: ClipboardEvent) => {
+      const t = e.target
+      return useStore.getState().mode !== 'editor' || !canvasRef.current ||
+        (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))
     }
+    const onCopy = (e: ClipboardEvent) => {
+      if (busy(e) || !window.getSelection()?.isCollapsed) return
+      const { nodes, edges } = useStore.getState()
+      const sel = nodes.filter(n => n.selected)
+      if (!sel.length) return
+      const ids = new Set(sel.map(n => n.id))
+      e.clipboardData?.setData('text/plain', exportText(sel, edges.filter(x => ids.has(x.source) && ids.has(x.target))))
+      e.preventDefault()
+      if (e.type === 'cut') useStore.getState().onNodesChange(sel.map(n => ({ type: 'remove' as const, id: n.id })))
+      showToast(`${sel.length} bloque${sel.length > 1 ? 's' : ''} ${e.type === 'cut' ? 'cortado' : 'copiado'}${sel.length > 1 ? 's' : ''}`)
+    }
+    const onPaste = (e: ClipboardEvent) => {
+      if (busy(e)) return
+      const text = e.clipboardData?.getData('text/plain')?.trim()
+      if (!text || !/^[[{]/.test(text)) return
+      let g
+      try { g = parsePaste(text) } catch { showToast('El portapapeles no contiene un flujo válido'); return }
+      e.preventDefault()
+      // Los bloques pegados se centran en la vista actual
+      const xs = g.nodes.map(n => n.position.x), ys = g.nodes.map(n => n.position.y)
+      const r = canvasRef.current!.getBoundingClientRect()
+      const c = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
+      const dx = c.x - (Math.min(...xs) + Math.max(...xs) + NODE_W) / 2, dy = c.y - (Math.min(...ys) + Math.max(...ys) + 100) / 2
+      const st = useStore.getState()
+      useStore.setState({
+        nodes: [...st.nodes.map(n => n.selected ? { ...n, selected: false } : n), ...g.nodes.map(n => ({ ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }))],
+        edges: [...st.edges, ...g.edges],
+      })
+      st.stopStep()
+      showToast(`Pegado${g.nodes.length > 1 ? 's' : ''} ${g.nodes.length} bloque${g.nodes.length > 1 ? 's' : ''}` + (g.skipped ? ` (se omitieron ${g.skipped} pasos)` : ''))
+    }
+    document.addEventListener('copy', onCopy)
+    document.addEventListener('cut', onCopy)
+    document.addEventListener('paste', onPaste)
+    return () => { document.removeEventListener('copy', onCopy); document.removeEventListener('cut', onCopy); document.removeEventListener('paste', onPaste) }
+  }, [ready, rf]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Abre un laboratorio o ejemplo: el flujo guardado si ya se modificó, o la plantilla sin guardar. */
+  const openTemplate = async (kind: 'lab' | 'example', key: string) => {
+    const f = await findByOrigin(kind, key)
     setBriefOpen(kind === 'lab')
-    go({ view: 'flow', id: f.id, tab: 'editor' })
+    go(f ? { view: 'flow', id: f.id, tab: 'editor' } : { view: 'template', kind, key })
   }
 
   /** «Reiniciar el laboratorio / desde el ejemplo»: vuelve a la plantilla (lo anterior queda en Ejecuciones). */
@@ -168,7 +237,10 @@ export default function App() {
     if (!o?.key || (o.origin !== 'lab' && o.origin !== 'example')) return
     if (!confirm('¿Volver al estado inicial? Tus cambios se reemplazan (las ejecuciones anteriores siguen en el historial).')) return
     const g = o.origin === 'lab' ? buildLab(o.key) : buildExample(o.key)
-    useStore.getState().setGraph(g.nodes, g.edges)
+    const st = useStore.getState()
+    // Un borrador vuelve a abrirse limpio; un flujo guardado recibe la plantilla como un cambio más
+    if (st.flowId) st.setGraph(g.nodes, g.edges)
+    else st.openFlow(g.nodes, g.edges, { id: null, name: st.flowName, origin: o })
     fit()
     if (o.origin === 'lab') setBriefOpen(true)
     showToast('Flujo reiniciado')
@@ -234,12 +306,12 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggle}
         onHome={() => go({ view: 'home' })}
-        onExample={name => openTemplate('example', name)}
+        onExamples={() => go({ view: 'examples' })}
         onLab={id => openTemplate('lab', id)}
         onNew={newFlow}
         onImport={() => setIo('import')}
         onMenu={() => setPaletteOpen(true)}
-        home={mode === 'home'}
+        page={mode !== 'home' ? null : route.view === 'examples' ? 'examples' : 'flows'}
         showMenu={mode !== 'home'}
       />
       {!ready ? (
@@ -249,7 +321,12 @@ export default function App() {
           <div className="h-0.5 w-56 overflow-hidden bg-border"><div className="h-full w-1/3 animate-pulse bg-green" /></div>
         </div>
       ) : mode === 'home' ? (
-        <main className="relative flex min-h-0 flex-1"><FlowsPage onNew={newFlow} onImport={() => setIo('import')} />{assistantOpen && <AssistantPanel overlay />}</main>
+        <main className="relative flex min-h-0 flex-1">
+          {route.view === 'examples'
+            ? <ExamplesPage group={route.group} onOpen={key => openTemplate('example', key)} />
+            : <FlowsPage onNew={newFlow} onImport={() => setIo('import')} />}
+          {assistantOpen && <AssistantPanel overlay />}
+        </main>
       ) : (
         <main className="relative flex min-h-0 flex-1">
           {mode === 'executions'

@@ -5,58 +5,9 @@ import { inPort } from './engine/graph'
 import { edgeId } from './state/store'
 import { serializeGraph, type SavedGraph } from './state/runner'
 import type { DataEdgeT, OpNodeT } from './engine/types'
-import { NET_EXAMPLES } from './examples.redes'
+import { EXAMPLES, type Spec } from './examples'
 
-export type Spec = [key: string, op: string, x: number, y: number, args?: Record<string, any>][]
-export interface Example { n: Spec; e: [string, string, number?][]; open?: string }
-
-const K16 = { string: '000102030405060708090a0b0c0d0e0f', option: 'Hex' }
-const IV16 = { string: '0f0e0d0c0b0a09080706050403020100', option: 'Hex' }
-
-const CRYPTO_EXAMPLES: Record<string, Example> = {
-  'AES-CBC por dentro': {
-    n: [['a', '__input', 0, 90, { text: 'Hola Juan, esto es AES-CBC!' }], ['b', 'AES Encrypt', 330, 90, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Raw', Output: 'Hex' }],
-      ['c', '__output', 680, 0, { label: 'Cifrado (hex)' }], ['d', 'AES Decrypt', 680, 200, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Hex', Output: 'Raw' }], ['e', '__output', 1030, 200, { label: 'Descifrado' }]],
-    e: [['a', 'b'], ['b', 'c'], ['b', 'd'], ['d', 'e']], open: 'b',
-  },
-  'ECB revela patrones': {
-    n: [['a', '__input', 0, 100, { text: 'BLOQUE-REPETIDO!BLOQUE-REPETIDO!BLOQUE-REPETIDO!' }], ['b', 'AES Encrypt', 330, 0, { Key: K16, IV: IV16, Mode: 'ECB', Input: 'Raw', Output: 'Hex' }],
-      ['c', '__output', 680, 0, { label: 'ECB: bloques iguales' }], ['d', 'AES Encrypt', 330, 220, { Key: K16, IV: IV16, Mode: 'CBC', Input: 'Raw', Output: 'Hex' }], ['e', '__output', 680, 220, { label: 'CBC: bloques distintos' }]],
-    e: [['a', 'b'], ['b', 'c'], ['a', 'd'], ['d', 'e']], open: 'b',
-  },
-  'Base64 bit a bit': {
-    n: [['a', '__input', 0, 90, { text: 'Hola!' }], ['b', 'To Binary', 330, 0], ['c', '__output', 680, 0, { label: 'Bits' }], ['d', 'To Base64', 330, 200], ['e', 'From Base64', 680, 200], ['f', '__output', 1030, 200, { label: 'De vuelta' }]],
-    e: [['a', 'b'], ['b', 'c'], ['a', 'd'], ['d', 'e'], ['e', 'f']], open: 'd',
-  },
-  'SHA-256 y HMAC': {
-    n: [['a', '__input', 0, 90, { text: 'abc' }], ['b', 'SHA2', 330, 0, { Size: '256' }], ['c', '__output', 680, 0, { label: 'SHA-256' }],
-      ['d', 'HMAC', 330, 200, { Key: { string: 'clave-secreta', option: 'UTF8' }, 'Hashing function': 'SHA256' }], ['e', '__output', 680, 200, { label: 'HMAC-SHA256' }]],
-    e: [['a', 'b'], ['b', 'c'], ['a', 'd'], ['d', 'e']], open: 'b',
-  },
-  'XOR ida y vuelta': {
-    n: [['a', '__input', 0, 90, { text: 'Ataque al amanecer' }], ['b', 'XOR', 330, 90, { Key: { string: 'CLAVE', option: 'UTF8' } }], ['c', 'To Hex', 680, 0], ['d', '__output', 1030, 0, { label: 'Cifrado (hex)' }],
-      ['e', 'XOR', 680, 200, { Key: { string: 'CLAVE', option: 'UTF8' } }], ['f', '__output', 1030, 200, { label: 'Recuperado' }]],
-    e: [['a', 'b'], ['b', 'c'], ['c', 'd'], ['b', 'e'], ['e', 'f']], open: 'b',
-  },
-  'One-time pad con dos flujos': {
-    n: [['a', '__input', 0, 0, { text: 'Ataque al amanecer' }], ['r', 'Pseudo-Random Number Generator', 0, 220, { 'Number of bytes': 18, 'Output as': 'Raw' }], ['x', '__xor2', 330, 100],
-      ['h', 'To Hex', 680, 0], ['o', '__output', 1030, 0, { label: 'Cifrado (hex)' }], ['y', '__xor2', 680, 220], ['p', '__output', 1030, 220, { label: 'Recuperado' }]],
-    e: [['a', 'x', 0], ['r', 'x', 1], ['x', 'h'], ['h', 'o'], ['x', 'y', 0], ['r', 'y', 1], ['y', 'p']],
-  },
-  'Magic: descubrir la codificación': {
-    n: [['a', '__input', 0, 90, { text: 'NTM2NTYzNzI2NTc0NmYyMDY0NjU2YzIwNmM2MTYyNmY3MjYxNzQ2ZjcyNjk2Zg==' }], ['b', 'Magic', 330, 90], ['c', '__output', 680, 90, { label: 'Sugerencias' }]],
-    e: [['a', 'b'], ['b', 'c']], open: 'b',
-  },
-  'Clásicos: ROT13 y Vigenère': {
-    n: [['a', '__input', 0, 90, { text: 'Ataca al amanecer' }], ['b', 'ROT13', 330, 0], ['c', '__output', 680, 0, { label: 'ROT13' }],
-      ['d', 'Vigenère Encode', 330, 200, { Key: 'LIMON' }], ['e', 'Vigenère Decode', 680, 200, { Key: 'LIMON' }], ['f', '__output', 1030, 200, { label: 'Vigenère ida y vuelta' }]],
-    e: [['a', 'b'], ['b', 'c'], ['a', 'd'], ['d', 'e'], ['e', 'f']], open: 'd',
-  },
-}
-
-/** Ejemplos agrupados como aparecen en el menú. */
-export const EXAMPLE_GROUPS: Record<string, Record<string, Example>> = { 'Criptografía': CRYPTO_EXAMPLES, 'Redes': NET_EXAMPLES }
-export const EXAMPLES: Record<string, Example> = { ...CRYPTO_EXAMPLES, ...NET_EXAMPLES }
+export type { Spec }
 
 const uid = () => 'n' + Math.random().toString(36).slice(2, 9)
 const mkEdge = (source: string, target: string, port = 0): DataEdgeT =>
@@ -142,3 +93,13 @@ export function recipeTo(id: string, nodes: OpNodeT[], edges: DataEdgeT[]) {
 }
 
 export const exportText = (nodes: OpNodeT[], edges: DataEdgeT[]) => JSON.stringify(serializeGraph(nodes, edges), null, 1)
+
+/** Bloques pegados desde el portapapeles (flujo de CipherFlow o receta de CyberChef) con ids nuevos, listos para añadir al lienzo. */
+export function parsePaste(text: string) {
+  const g = parseImport(text)
+  if (!g.nodes.length) throw new Error('vacío')
+  const ids: Record<string, string> = {}
+  const nodes = g.nodes.map(n => { ids[n.id] = uid(); return { ...n, id: ids[n.id], selected: true } })
+  const edges = g.edges.map(e => mkEdge(ids[e.source], ids[e.target], Number(String(e.targetHandle).slice(2)) || 0))
+  return { nodes, edges, skipped: g.skipped }
+}

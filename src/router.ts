@@ -5,13 +5,19 @@ import { useEffect, useState } from 'react'
 export type Route =
   | { view: 'home' }
   | { view: 'executions' }
+  /** Galería de ejemplos, opcionalmente filtrada por un grupo. */
+  | { view: 'examples'; group?: string }
   | { view: 'flow'; id: string; tab: 'editor' | 'executions' }
+  /** Ejemplo o laboratorio abierto sin guardar (se convierte en flujo al modificarlo). */
+  | { view: 'template'; kind: 'lab' | 'example'; key: string }
   | { view: 'none' }
 
 export function parseRoute(hash = location.hash): Route {
   const p = hash.replace(/^#\/?/, '').split('/').filter(Boolean)
   if (!p.length) return hash.startsWith('#/') ? { view: 'home' } : { view: 'none' }
   if (p[0] === 'ejecuciones') return { view: 'executions' }
+  if (p[0] === 'ejemplos') return p[1] ? { view: 'examples', group: decodeURIComponent(p[1]) } : { view: 'examples' }
+  if ((p[0] === 'lab' || p[0] === 'ejemplo') && p[1]) return { view: 'template', kind: p[0] === 'lab' ? 'lab' : 'example', key: decodeURIComponent(p[1]) }
   if (p[0] === 'flujo' && p[1]) return { view: 'flow', id: decodeURIComponent(p[1]), tab: p[2] === 'ejecuciones' ? 'executions' : 'editor' }
   return { view: 'home' }
 }
@@ -20,7 +26,9 @@ export function routeHash(r: Route): string {
   switch (r.view) {
     case 'home': return '#/'
     case 'executions': return '#/ejecuciones'
+    case 'examples': return '#/ejemplos' + (r.group ? '/' + encodeURIComponent(r.group) : '')
     case 'flow': return `#/flujo/${encodeURIComponent(r.id)}${r.tab === 'executions' ? '/ejecuciones' : ''}`
+    case 'template': return `#/${r.kind === 'lab' ? 'lab' : 'ejemplo'}/${encodeURIComponent(r.key)}`
     default: return ''
   }
 }
