@@ -2,7 +2,7 @@
 // El núcleo (tipos de datos y catálogo) se carga al iniciar; cada operación, cuando se usa.
 import { stripTags } from '../lib/bytes'
 
-const BASE = import.meta.env.BASE_URL + 'engine/'
+let BASE = import.meta.env.BASE_URL + 'engine/'
 
 export interface ArgConfig {
   name: string
@@ -31,11 +31,17 @@ interface Core { Dish: any; Recipe: any; OperationConfig: Record<string, OpConfi
 let core: Core | null = null
 let manifest: Manifest | null = null
 
-export async function loadEngine(): Promise<void> {
+/** Carga el núcleo. `from` permite usar el motor fuera del navegador (banco de evaluación en Node). */
+export async function loadEngine(from?: { base: string; readJSON: (url: string) => Promise<unknown> }): Promise<void> {
   if (core) return
+  if (from) BASE = from.base
+  // Al convertir texto con caracteres fuera de Latin-1 a UTF-8, CyberChef escribe en window.app.options
+  // (objeto de su propia interfaz); sin él, operaciones como From HTML Entity o HTTP request fallan.
+  const w = globalThis as { window?: { app?: { options?: Record<string, unknown> } } }
+  if (w.window) { w.window.app ??= {}; w.window.app.options ??= {} }
   const [c, m] = await Promise.all([
     import(/* @vite-ignore */ BASE + 'core.js'),
-    fetch(BASE + 'manifest.json').then(r => r.json()),
+    from ? from.readJSON(BASE + 'manifest.json') : fetch(BASE + 'manifest.json').then(r => r.json()),
   ])
   core = c as Core
   manifest = m as Manifest

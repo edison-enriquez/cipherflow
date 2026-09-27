@@ -28,6 +28,23 @@ interface State {
   toast: { msg: string; t: number } | null
   paletteOpen: boolean
   logOpen: boolean
+  /** «home» (Mis flujos), «editor» o «executions» (historial al estilo de n8n). */
+  mode: 'home' | 'editor' | 'executions'
+  /** Ejecuciones que se listan: las de un flujo (su id) o todas (null). */
+  execScope: string | null
+  /** Flujo guardado que está abierto en el editor; null si es un borrador de ejemplo o laboratorio
+   *  que aún no se ha modificado (se guarda como flujo al primer cambio). */
+  flowId: string | null
+  /** Cambia cada vez que se abre otro flujo o borrador (no al guardarse el borrador). */
+  session: number
+  flowOrigin: { origin: string; key?: string } | null
+  saveState: 'saved' | 'saving'
+  /** Ejecución guardada que se muestra en el lienzo (solo lectura), o null. */
+  viewing: string | null
+  /** Nombre con el que se registran las ejecuciones del flujo actual. */
+  flowName: string
+  /** Flujo del editor apartado mientras se miran ejecuciones. */
+  stash: { nodes: OpNodeT[]; edges: DataEdgeT[]; results: Record<string, Result> } | null
 
   onNodesChange: (c: NodeChange<OpNodeT>[]) => void
   onEdgesChange: (c: EdgeChange<DataEdgeT>[]) => void
@@ -47,6 +64,14 @@ interface State {
   setStep: (s: Partial<StepState>) => void
   startStep: () => void
   stopStep: () => void
+  setFlowName: (n: string) => void
+  setFlow: (id: string, name: string, origin: { origin: string; key?: string } | null) => void
+  /** Abre un grafo en el editor como otro flujo (guardado, o borrador con id null) de una sola vez. */
+  openFlow: (nodes: OpNodeT[], edges: DataEdgeT[], flow: { id: string | null; name: string; origin: { origin: string; key?: string } | null }) => void
+  setMode: (m: 'home' | 'editor') => void
+  enterExecutions: (scope: string | null) => void
+  viewExecution: (id: string, nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>) => void
+  exitExecutions: (restore?: boolean) => void
 }
 
 const uid = () => 'n' + Math.random().toString(36).slice(2, 9)
@@ -73,8 +98,19 @@ export const useStore = create<State>((set, get) => ({
   toast: null,
   paletteOpen: false,
   logOpen: false,
+  mode: 'editor',
+  execScope: null,
+  flowId: null,
+  flowOrigin: null,
+  session: 0,
+  saveState: 'saved',
+  viewing: null,
+  flowName: 'Flujo propio',
+  stash: null,
 
   onNodesChange: changes => {
+    // En el historial solo se permiten cambios de vista (medidas y selección), nunca de contenido
+    if (get().mode === 'executions') changes = changes.filter(c => c.type === 'dimensions' || c.type === 'select')
     const removed = changes.filter(c => c.type === 'remove').map(c => (c as { id: string }).id)
     removed.forEach(invalidate)
     set(s => ({
@@ -84,11 +120,11 @@ export const useStore = create<State>((set, get) => ({
       step: removed.length && s.step.on ? idleStep : s.step,
     }))
   },
-  onEdgesChange: changes => set(s => ({ edges: applyEdgeChanges(changes, s.edges), step: changes.some(c => c.type === 'remove') && s.step.on ? idleStep : s.step })),
+  onEdgesChange: changes => get().mode === 'executions' ? set(s => ({ edges: applyEdgeChanges(changes.filter(c => c.type === 'select'), s.edges) })) : set(s => ({ edges: applyEdgeChanges(changes, s.edges), step: changes.some(c => c.type === 'remove') && s.step.on ? idleStep : s.step })),
 
   connect: c => {
     const { edges } = get()
-    if (!c.source || !c.target) return false
+    if (!c.source || !c.target || get().mode === 'executions') return false
     if (wouldCycle(edges, c.source, c.target)) { get().showToast('Esa conexión crearía un ciclo'); return false }
     const th = c.targetHandle ?? 'in0'
     const rest = edges.filter(e => !(e.target === c.target && (e.targetHandle ?? 'in0') === th))
@@ -97,6 +133,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   addNode: (op, position, data, from) => {
+    if (get().mode === 'executions') return ''
     const n = makeNode(op, position, data)
     set(s => ({
       nodes: [...s.nodes.map(m => ({ ...m, selected: false })), { ...n, selected: true }],
@@ -107,6 +144,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   updateData: (id, patch) => {
+    if (get().mode === 'executions') return
     invalidate(id)
     set(s => ({ nodes: s.nodes.map(n => n.id === id ? { ...n, data: { ...n.data, ...patch } } : n), step: s.step.on ? idleStep : s.step }))
   },
@@ -125,6 +163,26 @@ export const useStore = create<State>((set, get) => ({
   setStep: p => set(s => ({ step: { ...s.step, ...p } })),
   startStep: () => set(s => ({ step: { ...idleStep, on: true, speed: s.step.speed, order: topoOrder(s.nodes, s.edges) }, logOpen: true })),
   stopStep: () => set(s => ({ step: { ...idleStep, speed: s.step.speed } })),
+  setFlowName: flowName => set({ flowName }),
+  setFlow: (flowId, flowName, flowOrigin) => set({ flowId, flowName, flowOrigin, saveState: 'saved' }),
+  openFlow: (nodes, edges, f) => {
+    clearCache()
+    set(s => ({ nodes, edges, results: {}, detail: null, step: idleStep, flowId: f.id, flowName: f.name, flowOrigin: f.origin, saveState: 'saved', session: s.session + 1 }))
+  },
+  setMode: mode => set(s => s.mode === 'executions'
+    ? { mode, viewing: null, stash: null, detail: null, ...(s.stash ?? {}) }
+    : { mode, detail: null }),
+  enterExecutions: execScope => set(s => s.mode === 'executions'
+    ? (s.execScope === execScope ? {} : { execScope, viewing: null, nodes: [], edges: [], results: {}, detail: null })
+    : {
+        mode: 'executions', execScope, viewing: null, stash: { nodes: s.nodes, edges: s.edges, results: s.results },
+        nodes: [], edges: [], results: {}, detail: null, step: idleStep,
+      }),
+  viewExecution: (id, nodes, edges, results) => set({ viewing: id, nodes, edges, results, detail: null }),
+  exitExecutions: (restore = true) => set(s => ({
+    mode: 'editor', viewing: null, stash: null, detail: null,
+    ...(restore && s.stash ? s.stash : {}),
+  })),
 }))
 
 /** ¿Se debe mostrar el resultado de este bloque? En modo paso a paso, solo si ya se ejecutó. */

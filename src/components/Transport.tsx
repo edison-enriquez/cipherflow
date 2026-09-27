@@ -1,7 +1,8 @@
 import { useRef } from 'react'
-import { Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
+import { Pause, Play, RotateCcw, Save, SkipForward } from 'lucide-react'
 import { useStore } from '../state/store'
 import { waitForRun } from '../state/runner'
+import { saveCurrentExecution } from '../state/recorder'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -12,6 +13,17 @@ export default function Transport() {
   const stopStep = useStore(s => s.stopStep)
   const setStep = useStore(s => s.setStep)
   const busy = useRef(false)
+  const nodeCount = useStore(s => s.nodes.length)
+
+  const save = async () => {
+    const st = useStore.getState()
+    const name = prompt('Nombre de la ejecución (queda fijada en el historial):', st.flowName)
+    if (name === null) return
+    try {
+      await saveCurrentExecution(name.trim() || st.flowName)
+      st.showToast('Ejecución guardada en el historial')
+    } catch { st.showToast('No se pudo guardar: el navegador no permite almacenamiento local') }
+  }
 
   const next = async () => {
     const st = useStore.getState().step
@@ -50,17 +62,18 @@ export default function Transport() {
     <div className="absolute left-1/2 top-3 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 border border-border bg-base p-1.5">
       <div className="flex">
         <button className={`btn whitespace-nowrap ${!step.on ? 'btn-on' : ''}`} onClick={stopStep}>En vivo</button>
-        <button className={`btn -ml-px whitespace-nowrap ${step.on ? 'btn-on' : ''}`} onClick={startStep}>Paso a paso</button>
+        <button className={`btn -ml-px whitespace-nowrap ${step.on ? 'btn-on' : ''}`} onClick={startStep} aria-label="Paso a paso"><span className="sm:hidden">Pasos</span><span className="hidden sm:inline">Paso a paso</span></button>
       </div>
+      <button className="btn btn-icon" onClick={save} disabled={!nodeCount} aria-label="Guardar ejecución" title="Guardar ejecución (fijada en el historial)"><Save size={13} /></button>
       {step.on && (
         <div className="flex items-center gap-1.5">
           <button className="btn btn-icon" onClick={startStep} aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>
-          <button className="btn btn-primary" onClick={play}>{step.playing ? <><Pause size={12} /> Pausar</> : <><Play size={12} /> Reproducir</>}</button>
-          <button className="btn" onClick={() => { setStep({ playing: false }); next() }} disabled={step.idx >= step.order.length}>Paso <SkipForward size={12} /></button>
+          <button className="btn btn-primary" onClick={play} aria-label={step.playing ? 'Pausar' : 'Reproducir'}>{step.playing ? <><Pause size={12} /><span className="hidden sm:inline">Pausar</span></> : <><Play size={12} /><span className="hidden sm:inline">Reproducir</span></>}</button>
+          <button className="btn" onClick={() => { setStep({ playing: false }); next() }} disabled={step.idx >= step.order.length} aria-label="Siguiente paso"><span className="hidden sm:inline">Paso</span> <SkipForward size={12} /></button>
           <select className="btn bg-base" value={step.speed} onChange={e => setStep({ speed: +e.target.value })} aria-label="Velocidad">
             <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option>
           </select>
-          <span className="min-w-[3rem] text-center text-[11px] text-muted">{step.idx} / {step.order.length}</span>
+          <span className="min-w-[2.5rem] text-center text-[11px] text-muted">{step.idx} / {step.order.length}</span>
         </div>
       )}
     </div>

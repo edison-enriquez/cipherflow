@@ -21,10 +21,10 @@ export default function LogPanel() {
   useEffect(() => { if (step.on && body.current) body.current.scrollTop = body.current.scrollHeight }, [step.done.length, step.on])
 
   return (
-    <div className="absolute bottom-3 left-3 z-10 flex max-h-[42%] w-[min(470px,calc(100%-9rem))] flex-col border border-border bg-base">
+    <div className="absolute bottom-3 left-3 z-10 flex max-h-[42%] w-[min(470px,calc(100%-4.5rem))] sm:w-[min(470px,calc(100%-9rem))] flex-col border border-border bg-base">
       <button className="flex items-center gap-2 px-2.5 py-2 text-[11px] font-bold uppercase tracking-widest" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className="text-green">{open ? '▾' : '▸'}</span> Registro de ejecución
-        <span className="ml-auto font-normal tracking-wider text-muted">{rows.length ? `${rows.length} paso${rows.length > 1 ? 's' : ''}` : ''}</span>
+        <span className="text-green">{open ? '▾' : '▸'}</span> <span className="truncate">Registro<span className="hidden sm:inline"> de ejecución</span></span>
+        <span className="ml-auto shrink-0 font-normal tracking-wider text-muted">{rows.length ? `${rows.length} paso${rows.length > 1 ? 's' : ''}` : ''}</span>
       </button>
       {open && (
         <div ref={body} className="overflow-y-auto border-t border-border">

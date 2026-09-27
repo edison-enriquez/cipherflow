@@ -1,11 +1,12 @@
 import { memo, useMemo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { Maximize2, X } from 'lucide-react'
+import { Maximize2, Sparkles, X } from 'lucide-react'
 import { catColor, opInfo } from '../engine/catalog'
 import type { OpNodeT } from '../engine/types'
 import { isRevealed, useStore } from '../state/store'
 import { fmtSize, fromUtf8, isPrintable, toHex } from '../lib/bytes'
 import { Square, TypeTag } from '../components/ui'
+import { useAgentStore } from '../agent/config'
 
 export const NODE_W = 216
 const PORT_Y = 50
@@ -26,6 +27,9 @@ function OpNodeImpl({ id, data, selected }: NodeProps<OpNodeT>) {
   const linked = useStore(s => s.edges.filter(e => e.target === id).map(e => e.targetHandle ?? 'in0').join(','))
   const openDetail = useStore(s => s.openDetail)
   const removeNode = useStore(s => s.removeNode)
+  const readOnly = useStore(s => s.mode === 'executions')
+  const aiEnabled = useAgentStore(s => s.enabled)
+  const askAbout = useAgentStore(s => s.askAbout)
   const sink = data.op === '__output'
   const title = (sink && data.params?.label) || info.name
   const sub = data.op === '__input' ? (data.params?.file ? 'Archivo: ' + data.params.fileName : 'Como ' + data.params?.fmt) : info.cat
@@ -48,12 +52,19 @@ function OpNodeImpl({ id, data, selected }: NodeProps<OpNodeT>) {
       <div className="flex h-8 items-center gap-2 border-b border-border pl-3 pr-0.5">
         <Square color={catColor(info.cat)} />
         <span className="flex-1 truncate text-[12.5px] font-bold">{title}</span>
+        {aiEnabled && !readOnly && (
+          <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-purple" title="Preguntar a la IA sobre este bloque" aria-label="Preguntar a la IA sobre este bloque" onClick={() => askAbout({ id, label: title })}>
+            <Sparkles size={12} />
+          </button>
+        )}
         <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-green" title="Abrir detalle" aria-label="Abrir detalle" onClick={() => openDetail(id)}>
           <Maximize2 size={12} />
         </button>
-        <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-red" title="Eliminar" aria-label="Eliminar bloque" onClick={() => removeNode(id)}>
-          <X size={13} />
-        </button>
+        {!readOnly && (
+          <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-red" title="Eliminar" aria-label="Eliminar bloque" onClick={() => removeNode(id)}>
+            <X size={13} />
+          </button>
+        )}
       </div>
       <div className="px-3 pb-2.5 pt-2">
         <div className="mb-1 truncate text-[10px] uppercase tracking-wider text-muted">{sub}</div>

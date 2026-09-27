@@ -18,6 +18,7 @@ export default function Canvas({ compact }: { compact: boolean }) {
   const onEdgesChange = useStore(s => s.onEdgesChange)
   const connect = useStore(s => s.connect)
   const openDetail = useStore(s => s.openDetail)
+  const readOnly = useStore(s => s.mode === 'executions')
   const reconnected = useRef(true)
 
   const isValid: IsValidConnection<DataEdgeT> = useCallback(
@@ -42,11 +43,13 @@ export default function Canvas({ compact }: { compact: boolean }) {
       onConnect={onConnect}
       isValidConnection={isValid}
       onNodeDoubleClick={(_, n) => openDetail(n.id)}
-      edgesReconnectable
+      edgesReconnectable={!readOnly}
+      nodesDraggable={!readOnly}
+      nodesConnectable={!readOnly}
       onReconnectStart={() => { reconnected.current = false }}
       onReconnect={onReconnect}
       onReconnectEnd={(_, e) => { if (!reconnected.current) onEdgesChange([{ type: 'remove', id: e.id }]); reconnected.current = true }}
-      deleteKeyCode={['Backspace', 'Delete']}
+      deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
       minZoom={0.2}
       maxZoom={2.5}
       fitView

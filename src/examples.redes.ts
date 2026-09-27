@@ -1,7 +1,7 @@
 // Ejemplos de la sección «Redes». Los paquetes son sintéticos pero válidos (checksums correctos),
 // salvo el ClientHello, que es uno real capturado de Node.js hacia cipherflow.eehub.ing.
 // Los datos binarios van como texto hexadecimal y cada operación los lee con su opción «Hex».
-import type { Example } from './io'
+import type { Example } from './examples'
 
 // Trama Ethernet → IPv4 (192.168.1.10 → 1.1.1.1) → UDP 53000 → 53 → consulta DNS A de cipherflow.eehub.ing
 const DNS_FRAME = '00005e0053010200000000010800450000423c21400040113ad6c0a8010a01010101cf080035002e1f111a2b010000010000000000000a636970686572666c6f7705656568756203696e670000010001'
@@ -28,6 +28,7 @@ const HEX = 'Texto (UTF-8)'
 
 export const NET_EXAMPLES: Record<string, Example> = {
   'HTTP: anatomía de una petición': {
+    d: 'Una petición HTTP en texto: de ella salen la URL con sus parámetros, el navegador del cliente y unas credenciales Basic que solo van en Base64.',
     n: [['a', '__input', 0, 220, { text: HTTP_REQ }],
       ['u', 'Find / Replace', 350, 0, { Find: RX('^\\S+ (\\S+) HTTP\\/[\\d.]+\\n[\\s\\S]*?Host: (\\S+)[\\s\\S]*$'), Replace: 'https://$2$1' }],
       ['uri', 'Parse URI', 700, 0], ['uo', '__output', 1050, 0, { label: 'URL y parámetros' }],
@@ -38,11 +39,13 @@ export const NET_EXAMPLES: Record<string, Example> = {
     e: [['a', 'u'], ['u', 'uri'], ['uri', 'uo'], ['a', 'g'], ['g', 'ua'], ['ua', 'uao'], ['a', 'c'], ['c', 'b64'], ['b64', 'co']], open: 'b64',
   },
   'HTTP: petición en vivo': {
+    d: 'Una petición real desde tu navegador, con el código de estado y las cabeceras que el navegador deja ver.',
     n: [['req', 'HTTP request', 0, 90, { Method: 'GET', URL: location.origin + import.meta.env.BASE_URL + 'favicon.svg', 'Show response metadata': true }],
       ['o', '__output', 350, 90, { label: 'Estado, cabeceras y cuerpo' }]],
     e: [['req', 'o']], open: 'req',
   },
   'DNS: consulta en vivo (DoH)': {
+    d: 'Consultas DNS reales cifradas sobre HTTPS: direcciones IPv4, servidores de correo (MX) y registros TXT como SPF.',
     n: [['d1', '__input', 0, 0, { text: 'cipherflow.eehub.ing' }],
       ['a', 'DNS over HTTPS', 350, 0, { Resolver: 'https://dns.google.com/resolve', 'Request Type': 'A', 'Answer Data Only': true }],
       ['ao', '__output', 700, 0, { label: 'A: direcciones IPv4' }],
@@ -54,6 +57,7 @@ export const NET_EXAMPLES: Record<string, Example> = {
     e: [['d1', 'a'], ['a', 'ao'], ['d2', 'mx'], ['mx', 'mxo'], ['d2', 'txt'], ['txt', 'txto']], open: 'a',
   },
   'DNS: paquete capa por capa': {
+    d: 'Una trama capturada desmontada como en Wireshark: Ethernet, IPv4, UDP y la consulta DNS que lleva dentro.',
     n: [['in', '__input', 0, 240, { text: DNS_FRAME, fmt: HEX }],
       ['eth', 'Parse Ethernet frame', 350, 0, { 'Input type': 'Hex', 'Return type': 'Text output' }], ['etho', '__output', 700, 0, { label: 'Capa 2 · Ethernet' }],
       ['ethd', 'Parse Ethernet frame', 350, 240, { 'Input type': 'Hex', 'Return type': 'Packet data (hex)' }],
@@ -64,12 +68,14 @@ export const NET_EXAMPLES: Record<string, Example> = {
     e: [['in', 'eth'], ['eth', 'etho'], ['in', 'ethd'], ['ethd', 'ip'], ['ip', 'ipo'], ['ethd', 'ipd'], ['ipd', 'udp'], ['udp', 'udpo'], ['ipd', 'fh'], ['fh', 'su'], ['su', 'hd'], ['hd', 'dnso']], open: 'ip',
   },
   'TCP: three-way handshake': {
+    d: 'Los tres segmentos que abren una conexión TCP (SYN, SYN-ACK, ACK) y cómo avanzan los números de secuencia.',
     n: [['s1', '__input', 0, 0, { text: SYN, fmt: HEX }], ['p1', 'Parse TCP', 350, 0, { 'Input format': 'Hex' }], ['o1', '__output', 700, 0, { label: '1 · SYN (cliente → servidor)' }],
       ['s2', '__input', 0, 240, { text: SYNACK, fmt: HEX }], ['p2', 'Parse TCP', 350, 240, { 'Input format': 'Hex' }], ['o2', '__output', 700, 240, { label: '2 · SYN-ACK (servidor → cliente)' }],
       ['s3', '__input', 0, 480, { text: ACK, fmt: HEX }], ['p3', 'Parse TCP', 350, 480, { 'Input format': 'Hex' }], ['o3', '__output', 700, 480, { label: '3 · ACK (cliente → servidor)' }]],
     e: [['s1', 'p1'], ['p1', 'o1'], ['s2', 'p2'], ['p2', 'o2'], ['s3', 'p3'], ['p3', 'o3']], open: 'p1',
   },
   'IP: subredes y formatos': {
+    d: 'Calcular red, máscara y rango de un CIDR, agrupar direcciones por subred y ver una IP como hexadecimal o entero.',
     n: [['c', '__input', 0, 0, { text: '192.168.10.77/26' }], ['r', 'Parse IP range', 350, 0, { 'Include network info': true, 'Enumerate IP addresses': false }], ['ro', '__output', 700, 0, { label: 'Red, máscara y rango' }],
       ['l', '__input', 0, 240, { text: '10.0.0.5\n192.168.10.77\n10.0.3.7\n192.168.10.200\n172.16.4.1\n10.0.0.99' }], ['g', 'Group IP addresses', 350, 240, { 'Subnet (CIDR)': 24 }], ['go', '__output', 700, 240, { label: 'Agrupadas por /24' }],
       ['i', '__input', 0, 520, { text: '192.168.10.77' }], ['h', 'Change IP format', 350, 460, { 'Input format': 'Dotted Decimal', 'Output format': 'Hex' }], ['ho', '__output', 700, 460, { label: 'Hexadecimal' }],
@@ -77,6 +83,7 @@ export const NET_EXAMPLES: Record<string, Example> = {
     e: [['c', 'r'], ['r', 'ro'], ['l', 'g'], ['g', 'go'], ['i', 'h'], ['h', 'ho'], ['i', 'd'], ['d', 'do']], open: 'r',
   },
   'TLS: ClientHello y huella JA3': {
+    d: 'El primer mensaje de TLS: dominio (SNI), cifrados ofrecidos y la huella JA3 que identifica al cliente.',
     n: [['in', '__input', 0, 220, { text: CLIENTHELLO, fmt: HEX }],
       ['fh', 'From Hex', 350, 0], ['tls', 'Parse TLS record', 700, 0], ['tlso', '__output', 1050, 0, { label: 'ClientHello desglosado (SNI, cifrados…)' }],
       ['js', 'JA3 Fingerprint', 350, 240, { 'Input format': 'Hex', 'Output format': 'JA3 string' }], ['jso', '__output', 700, 240, { label: 'Cadena JA3' }],
