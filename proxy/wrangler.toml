@@ -1,0 +1,10 @@
+# Cloudflare Worker que sirve /proxy/* en el mismo dominio de CipherFlow (ver src/index.js).
+# Despliegue: npx wrangler login && npx wrangler deploy   (desde esta carpeta)
+name = "cipherflow-proxy"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+routes = [
+  { pattern = "cipherflow.eehub.ing/proxy/*", zone_name = "eehub.ing" },
+]
