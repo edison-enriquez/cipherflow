@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Check, Copy, Download, Eraser, History, Loader2, MoreHorizontal, RotateCcw, Sparkles, SquarePen, Trash2 } from 'lucide-react'
 import { useAgentStore } from '../agent/config'
 import { useStore } from '../state/store'
-import { ORIGIN_LABEL, deleteFlow, duplicateFlow, type FlowOrigin } from '../state/flows'
+import { ORIGIN_LABEL, deleteFlow, duplicateFlow, isDraft, type FlowOrigin } from '../state/flows'
 import { useExecutions } from '../state/recorder'
 import { go } from '../router'
 
@@ -41,7 +41,8 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
       </div>
     )
   }
-  if (!flowId) return null
+  const draft = isDraft({ flowId, flowOrigin: origin })
+  if (!flowId && !draft) return null
 
   const count = execs.filter(e => e.flowId === flowId).length
   const commit = (v: string) => { setEditing(false); if (v.trim() && v.trim() !== name) useStore.getState().setFlowName(v.trim()) }
@@ -51,7 +52,7 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
   return (
     <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
       <button className="btn btn-icon shrink-0" onClick={() => go({ view: 'home' })} aria-label="Volver a Mis flujos" title="Mis flujos"><ArrowLeft size={14} /></button>
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
         {editing ? (
           <input
             ref={input}
@@ -66,14 +67,16 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
         )}
         {origin && <span className="hidden shrink-0 border border-border px-1.5 text-[9.5px] uppercase tracking-wider text-muted sm:inline">{ORIGIN_LABEL[origin.origin as FlowOrigin] ?? origin.origin}</span>}
         <span className="hidden shrink-0 items-center gap-1 text-[11px] text-muted md:flex" aria-live="polite">
-          {save === 'saving' ? <><Loader2 size={11} className="animate-spin" /> Guardando…</> : <><Check size={11} className="text-green" /> Guardado</>}
+          {save === 'saving' ? <><Loader2 size={11} className="animate-spin" /> Guardando…</>
+            : draft ? <span title="Se guarda en Mis flujos en cuanto lo modifiques">Sin guardar · se guarda al modificarlo</span>
+            : <><Check size={11} className="text-green" /> Guardado</>}
         </span>
       </div>
       <div className="flex shrink-0" role="tablist" aria-label="Vista del flujo">
-        <button role="tab" aria-selected={mode === 'editor'} className={`btn whitespace-nowrap ${mode === 'editor' ? 'btn-on' : ''}`} onClick={() => go({ view: 'flow', id: flowId, tab: 'editor' })}>
+        <button role="tab" aria-selected={mode === 'editor'} className={`btn whitespace-nowrap ${mode === 'editor' ? 'btn-on' : ''}`} onClick={() => flowId && go({ view: 'flow', id: flowId, tab: 'editor' })}>
           <SquarePen size={13} /><span className="hidden sm:inline">Editor</span>
         </button>
-        <button role="tab" aria-selected={mode === 'executions'} className={`btn -ml-px whitespace-nowrap ${mode === 'executions' ? 'btn-on' : ''}`} onClick={() => go({ view: 'flow', id: flowId, tab: 'executions' })}>
+        <button role="tab" aria-selected={mode === 'executions'} className={`btn -ml-px whitespace-nowrap ${mode === 'executions' ? 'btn-on' : ''}`} disabled={!flowId} title={flowId ? undefined : 'Aún no hay ejecuciones: el flujo se guarda al modificarlo'} onClick={() => flowId && go({ view: 'flow', id: flowId, tab: 'executions' })}>
           <History size={13} /><span className="hidden sm:inline">Ejecuciones</span>{count > 0 && <span className="text-[10.5px] opacity-80">{count}</span>}
         </button>
       </div>
@@ -87,16 +90,16 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
         {menu && (
           <div className="absolute right-0 top-9 z-40 w-60 border border-border bg-surface py-1 text-[12.5px] shadow-lg" role="menu">
             <Item icon={<Download size={13} />} label="Exportar (JSON o receta)" onClick={act(onExport)} />
-            <Item icon={<Copy size={13} />} label="Duplicar" onClick={act(async () => { const c = await duplicateFlow(flowId); if (c) go({ view: 'flow', id: c.id, tab: 'editor' }) })} />
+            {flowId && <Item icon={<Copy size={13} />} label="Duplicar" onClick={act(async () => { const c = await duplicateFlow(flowId); if (c) go({ view: 'flow', id: c.id, tab: 'editor' }) })} />}
             {canReset && <Item icon={<RotateCcw size={13} />} label={origin?.origin === 'lab' ? 'Reiniciar el laboratorio' : 'Reiniciar desde el ejemplo'} onClick={act(onReset)} />}
             <Item icon={<Eraser size={13} />} label="Vaciar el lienzo" disabled={mode !== 'editor'} onClick={act(() => { if (confirm('¿Borrar todos los bloques de este flujo?')) useStore.getState().setGraph([], []) })} />
-            <div className="my-1 border-t border-border" />
-            <Item icon={<Trash2 size={13} />} label="Borrar el flujo" danger onClick={act(async () => {
+            {flowId && <div className="my-1 border-t border-border" />}
+            {flowId && <Item icon={<Trash2 size={13} />} label="Borrar el flujo" danger onClick={act(async () => {
               if (!confirm(`¿Borrar «${name}» y sus ${count} ejecuciones? No se puede deshacer.`)) return
               await deleteFlow(flowId)
               useStore.setState({ flowId: null })
               go({ view: 'home' }, true)
-            })} />
+            })} />}
           </div>
         )}
       </div>

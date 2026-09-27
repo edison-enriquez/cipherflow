@@ -32,8 +32,11 @@ interface State {
   mode: 'home' | 'editor' | 'executions'
   /** Ejecuciones que se listan: las de un flujo (su id) o todas (null). */
   execScope: string | null
-  /** Flujo guardado que está abierto en el editor. */
+  /** Flujo guardado que está abierto en el editor; null si es un borrador de ejemplo o laboratorio
+   *  que aún no se ha modificado (se guarda como flujo al primer cambio). */
   flowId: string | null
+  /** Cambia cada vez que se abre otro flujo o borrador (no al guardarse el borrador). */
+  session: number
   flowOrigin: { origin: string; key?: string } | null
   saveState: 'saved' | 'saving'
   /** Ejecución guardada que se muestra en el lienzo (solo lectura), o null. */
@@ -63,6 +66,8 @@ interface State {
   stopStep: () => void
   setFlowName: (n: string) => void
   setFlow: (id: string, name: string, origin: { origin: string; key?: string } | null) => void
+  /** Abre un grafo en el editor como otro flujo (guardado, o borrador con id null) de una sola vez. */
+  openFlow: (nodes: OpNodeT[], edges: DataEdgeT[], flow: { id: string | null; name: string; origin: { origin: string; key?: string } | null }) => void
   setMode: (m: 'home' | 'editor') => void
   enterExecutions: (scope: string | null) => void
   viewExecution: (id: string, nodes: OpNodeT[], edges: DataEdgeT[], results: Record<string, Result>) => void
@@ -97,6 +102,7 @@ export const useStore = create<State>((set, get) => ({
   execScope: null,
   flowId: null,
   flowOrigin: null,
+  session: 0,
   saveState: 'saved',
   viewing: null,
   flowName: 'Flujo propio',
@@ -159,6 +165,10 @@ export const useStore = create<State>((set, get) => ({
   stopStep: () => set(s => ({ step: { ...idleStep, speed: s.step.speed } })),
   setFlowName: flowName => set({ flowName }),
   setFlow: (flowId, flowName, flowOrigin) => set({ flowId, flowName, flowOrigin, saveState: 'saved' }),
+  openFlow: (nodes, edges, f) => {
+    clearCache()
+    set(s => ({ nodes, edges, results: {}, detail: null, step: idleStep, flowId: f.id, flowName: f.name, flowOrigin: f.origin, saveState: 'saved', session: s.session + 1 }))
+  },
   setMode: mode => set(s => s.mode === 'executions'
     ? { mode, viewing: null, stash: null, detail: null, ...(s.stash ?? {}) }
     : { mode, detail: null }),
