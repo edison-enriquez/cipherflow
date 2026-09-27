@@ -1,4 +1,4 @@
-import { Download, Github, Menu, Moon, Sun, Trash2, Upload } from 'lucide-react'
+import { Github, LayoutList, Menu, Moon, Plus, Sun, Upload } from 'lucide-react'
 import { EXAMPLE_GROUPS } from '../io'
 import { LABS } from '../labs'
 import { Tag } from './ui'
@@ -7,26 +7,30 @@ import type { Theme } from '../hooks/useTheme'
 interface Props {
   theme: Theme
   onToggleTheme: () => void
+  onHome: () => void
   onExample: (name: string) => void
   onLab: (id: string) => void
-  onExport: () => void
+  onNew: () => void
   onImport: () => void
-  onClear: () => void
   onMenu: () => void
+  home: boolean
+  showMenu: boolean
 }
 
-export default function Header({ theme, onToggleTheme, onExample, onLab, onExport, onImport, onClear, onMenu }: Props) {
+export default function Header({ theme, onToggleTheme, onHome, onExample, onLab, onNew, onImport, onMenu, home, showMenu }: Props) {
   return (
     <header className="z-20 flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto sm:gap-2 border-b border-border bg-base px-3 sm:px-4">
-      <button className="btn btn-icon md:hidden" onClick={onMenu} aria-label="Abrir la lista de bloques"><Menu size={14} /></button>
-      <div className="mr-auto flex min-w-0 items-center gap-3">
-        <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold uppercase tracking-widest sm:text-[15px]">
+      {showMenu && <button className="btn btn-icon md:hidden" onClick={onMenu} aria-label="Abrir el panel lateral"><Menu size={14} /></button>}
+      <div className="mr-auto flex min-w-0 items-center gap-3 overflow-hidden">
+        <button className="flex shrink-0 items-center gap-1.5 text-sm font-bold uppercase tracking-widest hover:text-green sm:text-[15px]" onClick={onHome} title="Mis flujos">
           <span className="inline-block h-2.5 w-2.5 bg-green" aria-hidden="true" />
           <span className="hidden min-[420px]:inline">CipherFlow</span>
-        </span>
+        </button>
         <Tag color="green" className="hidden sm:inline-block">CyberChef</Tag>
-        <span className="hidden truncate text-xs uppercase tracking-wider text-muted lg:inline">Flujos criptográficos por nodos</span>
       </div>
+      <button className={`btn whitespace-nowrap ${home ? 'btn-on' : ''}`} onClick={onHome} title="Todos tus flujos guardados">
+        <LayoutList size={13} /><span className="hidden sm:inline">Mis flujos</span>
+      </button>
       <select
         className="btn max-w-[8rem] border-green/40 bg-base text-green sm:max-w-none"
         value=""
@@ -50,9 +54,8 @@ export default function Header({ theme, onToggleTheme, onExample, onLab, onExpor
           </optgroup>
         ))}
       </select>
-      <button className="btn" onClick={onExport} title="Exportar el flujo o la receta de CyberChef"><Download size={13} /><span className="hidden sm:inline">Exportar</span></button>
-      <button className="btn" onClick={onImport} title="Importar un flujo o una receta de CyberChef"><Upload size={13} /><span className="hidden sm:inline">Importar</span></button>
-      <button className="btn hover:!border-red/50 hover:!text-red" onClick={onClear} title="Borrar todos los bloques"><Trash2 size={13} /><span className="hidden sm:inline">Limpiar</span></button>
+      <button className="btn" onClick={onNew} title="Crear un flujo vacío"><Plus size={13} /><span className="hidden sm:inline">Nuevo</span></button>
+      <button className="btn" onClick={onImport} title="Importar un flujo o una receta de CyberChef como flujo nuevo"><Upload size={13} /><span className="hidden sm:inline">Importar</span></button>
       <a className="btn btn-icon hidden sm:inline-flex" href="https://github.com/edison-enriquez/cipherflow" target="_blank" rel="noreferrer" aria-label="Código en GitHub" title="Código en GitHub"><Github size={13} /></a>
       <button className="btn btn-icon" onClick={onToggleTheme} aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}>
         {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}

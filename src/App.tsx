@@ -10,65 +10,158 @@ import Canvas from './canvas/Canvas'
 import { NODE_W } from './canvas/OpNode'
 import NodeDetail from './detail/NodeDetail'
 import { useStore } from './state/store'
-import { loadSaved, usePersistence, useGraphRunner, waitForRun } from './state/runner'
+import { loadSaved, loadSavedName, serializeGraph, useGraphRunner, waitForRun } from './state/runner'
+import { useExecutionRecorder } from './state/recorder'
+import { createFlow, findByOrigin, getFlow, lastFlowId, listFlows, setLastFlowId, uniqueName, useFlowAutosave } from './state/flows'
+import { ExecutionBar, ExecutionsPanel } from './components/Executions'
+import FlowsPage from './components/FlowsPage'
+import FlowBar from './components/FlowBar'
 import { loadEngine } from './engine/cyberchef'
 import { buildCatalog, opInfo } from './engine/catalog'
 import { buildExample, exportText, graphFromSaved, parseImport, recipeTo } from './io'
-import { LABS, buildLab, type Lab } from './labs'
+import { LABS, buildLab } from './labs'
 import LabBrief from './components/LabBrief'
+import { go, useRoute } from './router'
 import { useMedia, useTheme } from './hooks/useTheme'
+
+const DEFAULT_EXAMPLE = 'AES-CBC por dentro'
+/** «1 · El pingüino de ECB» → «Lab 1 · El pingüino de ECB» */
+const labName = (titulo: string) => titulo.replace(/^(\d+)\s*·\s*/, 'Lab $1 · ')
+
+/** Primera vez con flujos: el trabajo que había en el navegador pasa a ser un flujo guardado. */
+async function migrate() {
+  if ((await listFlows()).length) return
+  const saved = loadSaved()
+  if (saved) await createFlow({ name: loadSavedName() || 'Mi primer flujo', origin: 'own', graph: saved })
+  else {
+    const ex = buildExample(DEFAULT_EXAMPLE)
+    await createFlow({ name: DEFAULT_EXAMPLE, origin: 'example', originKey: DEFAULT_EXAMPLE, graph: serializeGraph(ex.nodes, ex.edges) })
+  }
+}
 
 export default function App() {
   const { theme, toggle } = useTheme()
   const compact = useMedia('(max-width: 767px)')
   const rf = useReactFlow()
+  const route = useRoute()
   const canvasRef = useRef<HTMLDivElement>(null)
+  /** Bloque cuyo detalle se abre al terminar de cargar un laboratorio o ejemplo recién creado. */
+  const pendingDetail = useRef<string | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [io, setIo] = useState<'export' | 'import' | null>(null)
-  const [lab, setLab] = useState<Lab | null>(null)
   const [briefOpen, setBriefOpen] = useState(false)
   const paletteOpen = useStore(s => s.paletteOpen)
   const setPaletteOpen = useStore(s => s.setPaletteOpen)
-  const setGraph = useStore(s => s.setGraph)
   const addNode = useStore(s => s.addNode)
   const openDetail = useStore(s => s.openDetail)
   const showToast = useStore(s => s.showToast)
   const setLogOpen = useStore(s => s.setLogOpen)
+  const mode = useStore(s => s.mode)
+  const viewing = useStore(s => s.viewing)
+  const hasNodes = useStore(s => s.nodes.length > 0)
+  const origin = useStore(s => s.flowOrigin)
+  const lab = origin?.origin === 'lab' && origin.key ? LABS[origin.key] ?? null : null
 
   const fit = useCallback(() => setTimeout(() => rf.fitView({ padding: 0.25, duration: 250 }), 60), [rf])
 
-  const loadExample = useCallback((name: string, openIt = true) => {
-    const ex = buildExample(name)
-    setGraph(ex.nodes, ex.edges)
+  /** Carga un flujo guardado en el editor (sin navegar). */
+  const loadFlow = useCallback(async (id: string) => {
+    const f = await getFlow(id)
+    if (!f) return false
+    const st = useStore.getState()
+    if (st.mode === 'executions') st.exitExecutions(false)
+    const g = graphFromSaved(f.graph)
+    st.setGraph(g.nodes, g.edges)
+    st.setFlow(f.id, f.name, { origin: f.origin, key: f.originKey })
+    setLastFlowId(f.id)
     fit()
-    if (openIt && ex.open && !compact) waitForRun().then(() => setTimeout(() => openDetail(ex.open!, 'proc'), 350))
-  }, [setGraph, fit, compact, openDetail])
-
-  const loadLab = useCallback((id: string) => {
-    const l = LABS[id]
-    if (!l) return
-    const g = buildLab(id)
-    setGraph(g.nodes, g.edges)
-    setLab(l)
-    setBriefOpen(true)
-    fit()
-    if (g.open && !compact) waitForRun().then(() => setTimeout(() => openDetail(g.open!, l.open ? 'proc' : 'out'), 350))
-  }, [setGraph, fit, compact, openDetail])
+    return true
+  }, [fit])
 
   useEffect(() => {
-    loadEngine().then(() => {
+    loadEngine().then(async () => {
       buildCatalog()
-      const saved = loadSaved()
-      if (saved) { const g = graphFromSaved(saved); setGraph(g.nodes, g.edges); fit() }
-      else loadExample('AES-CBC por dentro', false)
+      try { await migrate() } catch { showToast('Este navegador no permite guardar flujos: los cambios no se conservarán') }
       if (!matchMedia('(max-width: 767px)').matches) setLogOpen(false)
       setReady(true)
     }).catch(e => setError(e?.message ?? String(e)))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // La URL manda: cada cambio de ruta abre la vista correspondiente
+  const routeKey = JSON.stringify(route)
+  useEffect(() => {
+    if (!ready) return
+    let alive = true
+    ;(async () => {
+      const st = useStore.getState()
+      if (route.view === 'none') {
+        // Sin ruta: se vuelve al último flujo usado (o al más reciente)
+        const last = lastFlowId()
+        const f = (last && await getFlow(last)) || (await listFlows())[0]
+        go(f ? { view: 'flow', id: f.id, tab: 'editor' } : { view: 'home' }, true)
+        return
+      }
+      if (route.view === 'home') { setBriefOpen(false); st.setMode('home'); return }
+      if (route.view === 'executions') {
+        setBriefOpen(false)
+        setPaletteOpen(compact)
+        st.enterExecutions(null)
+        return
+      }
+      if (st.flowId !== route.id && !(await loadFlow(route.id))) {
+        if (alive) { showToast('Ese flujo ya no existe'); go({ view: 'home' }, true) }
+        return
+      }
+      if (!alive) return
+      const s2 = useStore.getState()
+      if (route.tab === 'executions') {
+        setPaletteOpen(compact)
+        s2.enterExecutions(route.id)
+      } else {
+        if (s2.mode === 'executions') s2.exitExecutions()
+        else if (s2.mode === 'home') s2.setMode('editor')
+        const nid = pendingDetail.current
+        pendingDetail.current = null
+        if (nid && !compact) waitForRun().then(() => setTimeout(() => openDetail(nid, 'proc'), 350))
+      }
+    })()
+    return () => { alive = false }
+  }, [ready, routeKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useGraphRunner(ready)
-  usePersistence(ready)
+  useFlowAutosave(ready)
+  useExecutionRecorder(ready)
+
+  /** Abre el flujo de un laboratorio o ejemplo; si no existe aún, lo crea desde la plantilla. */
+  const openTemplate = async (kind: 'lab' | 'example', key: string) => {
+    let f = await findByOrigin(kind, key)
+    if (!f) {
+      const g = kind === 'lab' ? buildLab(key) : buildExample(key)
+      f = await createFlow({ name: kind === 'lab' ? labName(LABS[key].titulo) : key, origin: kind, originKey: key, graph: serializeGraph(g.nodes, g.edges) })
+      pendingDetail.current = g.open ?? null
+    }
+    setBriefOpen(kind === 'lab')
+    go({ view: 'flow', id: f.id, tab: 'editor' })
+  }
+
+  /** «Reiniciar el laboratorio / desde el ejemplo»: vuelve a la plantilla (lo anterior queda en Ejecuciones). */
+  const resetTemplate = () => {
+    const o = useStore.getState().flowOrigin
+    if (!o?.key || (o.origin !== 'lab' && o.origin !== 'example')) return
+    if (!confirm('¿Volver al estado inicial? Tus cambios se reemplazan (las ejecuciones anteriores siguen en el historial).')) return
+    const g = o.origin === 'lab' ? buildLab(o.key) : buildExample(o.key)
+    useStore.getState().setGraph(g.nodes, g.edges)
+    fit()
+    if (o.origin === 'lab') setBriefOpen(true)
+    showToast('Flujo reiniciado')
+  }
+
+  const newFlow = async () => {
+    const f = await createFlow({ name: await uniqueName('Flujo nuevo'), origin: 'own', graph: { nodes: [], edges: [] } })
+    setBriefOpen(false)
+    go({ view: 'flow', id: f.id, tab: 'editor' })
+  }
 
   const addFromPalette = (op: string) => {
     const { nodes } = useStore.getState()
@@ -95,14 +188,15 @@ export default function App() {
     }, 30)
   }
 
-  const onImport = (text: string) => {
-    try {
-      const g = parseImport(text)
-      setGraph(g.nodes, g.edges)
-      setIo(null)
-      fit()
-      showToast(g.skipped ? `Importado; se omitieron ${g.skipped} pasos de control de flujo` : 'Importado')
-    } catch { showToast('El JSON no es válido') }
+  /** Importar crea un flujo nuevo (no pisa el abierto). */
+  const onImport = async (text: string) => {
+    let g
+    try { g = parseImport(text) } catch { showToast('El JSON no es válido'); return }
+    const f = await createFlow({ name: await uniqueName('Flujo importado'), origin: 'import', graph: serializeGraph(g.nodes, g.edges) })
+    setIo(null)
+    setBriefOpen(false)
+    go({ view: 'flow', id: f.id, tab: 'editor' })
+    showToast(g.skipped ? `Importado como flujo nuevo; se omitieron ${g.skipped} pasos de control de flujo` : 'Importado como flujo nuevo')
   }
 
   const { nodes, edges } = useStore.getState()
@@ -122,12 +216,14 @@ export default function App() {
       <Header
         theme={theme}
         onToggleTheme={toggle}
-        onExample={name => { setLab(null); loadExample(name) }}
-        onLab={loadLab}
-        onExport={() => setIo('export')}
+        onHome={() => go({ view: 'home' })}
+        onExample={name => openTemplate('example', name)}
+        onLab={id => openTemplate('lab', id)}
+        onNew={newFlow}
         onImport={() => setIo('import')}
-        onClear={() => { if (!useStore.getState().nodes.length || confirm('¿Borrar todos los bloques del lienzo?')) { setGraph([], []); setLab(null) } }}
         onMenu={() => setPaletteOpen(true)}
+        home={mode === 'home'}
+        showMenu={mode !== 'home'}
       />
       {!ready ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
@@ -135,23 +231,35 @@ export default function App() {
           <p className="label">Cargando el motor de CyberChef…</p>
           <div className="h-0.5 w-56 overflow-hidden bg-border"><div className="h-full w-1/3 animate-pulse bg-green" /></div>
         </div>
+      ) : mode === 'home' ? (
+        <main className="flex min-h-0 flex-1"><FlowsPage onNew={newFlow} onImport={() => setIo('import')} /></main>
       ) : (
         <main className="relative flex min-h-0 flex-1">
-          <Palette onAdd={addFromPalette} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          {mode === 'executions'
+            ? <ExecutionsPanel open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpened={fit} />
+            : <Palette onAdd={addFromPalette} open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
           {compact && paletteOpen && <div className="absolute inset-0 z-20 bg-base/60" onClick={() => setPaletteOpen(false)} />}
-          <div ref={canvasRef} className="relative min-w-0 flex-1">
-            <Canvas compact={compact} />
-            <Transport />
-            <LogPanel />
-            {!useStore.getState().nodes.length && (
-              <div className="pointer-events-none absolute inset-0 grid place-items-center p-8 text-center text-[13px] leading-loose text-muted">
-                <p>Agrega una Entrada desde la lista y encadena operaciones.<br />Arrastra desde un pin de salida (derecha) hasta uno de entrada (izquierda).</p>
-              </div>
-            )}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <FlowBar onExport={() => setIo('export')} onReset={resetTemplate} />
+            <div ref={canvasRef} className="relative min-h-0 flex-1">
+              <Canvas compact={compact} />
+              {mode === 'executions' ? <ExecutionBar onRestore={fit} /> : <Transport />}
+              <LogPanel />
+              {mode === 'executions' && !viewing && (
+                <div className="pointer-events-none absolute inset-0 grid place-items-center p-8 text-center text-[13px] leading-loose text-muted">
+                  <p>Elige una ejecución de la lista para verla tal como quedó.<br />Pulsa «Editor» para volver a tu flujo.</p>
+                </div>
+              )}
+              {mode === 'editor' && !hasNodes && (
+                <div className="pointer-events-none absolute inset-0 grid place-items-center p-8 text-center text-[13px] leading-loose text-muted">
+                  <p>Agrega una Entrada desde la lista y encadena operaciones.<br />Arrastra desde un pin de salida (derecha) hasta uno de entrada (izquierda).</p>
+                </div>
+              )}
+            </div>
           </div>
         </main>
       )}
-      {lab && !briefOpen && (
+      {lab && !briefOpen && mode === 'editor' && (
         <button
           className="btn btn-primary fixed bottom-6 right-4 z-20 shadow-lg"
           onClick={() => setBriefOpen(true)}
@@ -160,7 +268,7 @@ export default function App() {
           Reto: {lab.titulo.split('·')[0].trim()} ↑
         </button>
       )}
-      {lab && briefOpen && <LabBrief lab={lab} onClose={() => setBriefOpen(false)} />}
+      {lab && briefOpen && mode === 'editor' && <LabBrief lab={lab} onClose={() => setBriefOpen(false)} />}
       <NodeDetail />
       <IODialog
         mode={io}

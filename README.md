@@ -21,6 +21,7 @@ Editor visual de flujos criptográficos por nodos, al estilo de n8n, que ejecuta
   - *Criptografía:* AES-CBC por dentro, ECB revela patrones, Base64 bit a bit, SHA-256 y HMAC, XOR ida y vuelta, One-time pad con dos flujos, Magic, y ROT13/Vigenère.
   - *Redes:* anatomía de una petición HTTP (URL, User-Agent y credenciales Basic en claro), petición HTTP en vivo, consulta DNS en vivo (DoH), paquete DNS capa por capa (Ethernet → IPv4 → UDP → DNS), three-way handshake TCP, subredes IP y ClientHello TLS con huella JA3. Los dos ejemplos «en vivo» hacen peticiones reales desde el navegador.
 - **Persistencia local, temas claro/oscuro, paleta con buscador y panel de registro.** Diseño responsive (paleta como drawer en móvil).
+- **Flujos guardados y ejecuciones (al estilo de n8n).** **Mis flujos** lista todos tus flujos (búsqueda, orden, favoritos, duplicar, exportar, borrar). Cada laboratorio, ejemplo, importación o flujo nuevo es un flujo propio que se **guarda solo** mientras lo editas, así que cambiar de diseño no borra nada; al reabrir un laboratorio vuelves a tu progreso (y puedes reiniciarlo). Cada flujo tiene sus pestañas **Editor | Ejecuciones**: cada ejecución estable guarda una foto del grafo y la salida de cada bloque, que se puede abrir en solo lectura con su panel de detalle, restaurar en el editor, fijar o exportar; también hay una vista de **Todas las ejecuciones**. Las rutas van en la URL (`#/`, `#/flujo/<id>`, `#/flujo/<id>/ejecuciones`, `#/ejecuciones`). Todo se guarda en IndexedDB, en el navegador.
 
 ## Arquitectura
 
@@ -34,7 +35,10 @@ src/canvas/             Lienzo @xyflow/react: Canvas.tsx, bloques (OpNode.tsx) y
 src/detail/             Vista de detalle: NodeDetail.tsx, Params.tsx, DataView.tsx, Process.tsx
 src/explainers/         Explicaciones paso a paso: aes.tsx, sha256.tsx, encodings.tsx, classic.tsx
 src/lib/                bytes.ts, e implementaciones didácticas aes.ts y sha256.ts
-src/state/              store.ts (Zustand), runner.ts (auto-ejecución, paso a paso, persistencia localStorage)
+src/state/              store.ts (Zustand), runner.ts (auto-ejecución, paso a paso, persistencia localStorage),
+                        db.ts (IndexedDB), flows.ts (flujos y autoguardado), history.ts (ejecuciones),
+                        recorder.ts (registro automático)
+src/router.ts           rutas en el hash de la URL
 src/components/         Header, Palette, Transport, LogPanel, Toast, IODialog, ui.tsx
 src/hooks/              useTheme.ts (tema + media queries)
 src/io.ts               ejemplos de criptografía, importación (flujos + recetas) y exportación

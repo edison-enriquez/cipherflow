@@ -26,6 +26,7 @@ function OpNodeImpl({ id, data, selected }: NodeProps<OpNodeT>) {
   const linked = useStore(s => s.edges.filter(e => e.target === id).map(e => e.targetHandle ?? 'in0').join(','))
   const openDetail = useStore(s => s.openDetail)
   const removeNode = useStore(s => s.removeNode)
+  const readOnly = useStore(s => s.mode === 'executions')
   const sink = data.op === '__output'
   const title = (sink && data.params?.label) || info.name
   const sub = data.op === '__input' ? (data.params?.file ? 'Archivo: ' + data.params.fileName : 'Como ' + data.params?.fmt) : info.cat
@@ -51,9 +52,11 @@ function OpNodeImpl({ id, data, selected }: NodeProps<OpNodeT>) {
         <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-green" title="Abrir detalle" aria-label="Abrir detalle" onClick={() => openDetail(id)}>
           <Maximize2 size={12} />
         </button>
-        <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-red" title="Eliminar" aria-label="Eliminar bloque" onClick={() => removeNode(id)}>
-          <X size={13} />
-        </button>
+        {!readOnly && (
+          <button className="nodrag grid h-7 w-6 place-items-center text-muted hover:text-red" title="Eliminar" aria-label="Eliminar bloque" onClick={() => removeNode(id)}>
+            <X size={13} />
+          </button>
+        )}
       </div>
       <div className="px-3 pb-2.5 pt-2">
         <div className="mb-1 truncate text-[10px] uppercase tracking-wider text-muted">{sub}</div>

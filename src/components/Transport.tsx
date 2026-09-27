@@ -1,7 +1,8 @@
 import { useRef } from 'react'
-import { Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
+import { Pause, Play, RotateCcw, Save, SkipForward } from 'lucide-react'
 import { useStore } from '../state/store'
 import { waitForRun } from '../state/runner'
+import { saveCurrentExecution } from '../state/recorder'
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
@@ -12,6 +13,17 @@ export default function Transport() {
   const stopStep = useStore(s => s.stopStep)
   const setStep = useStore(s => s.setStep)
   const busy = useRef(false)
+  const nodeCount = useStore(s => s.nodes.length)
+
+  const save = async () => {
+    const st = useStore.getState()
+    const name = prompt('Nombre de la ejecución (queda fijada en el historial):', st.flowName)
+    if (name === null) return
+    try {
+      await saveCurrentExecution(name.trim() || st.flowName)
+      st.showToast('Ejecución guardada en el historial')
+    } catch { st.showToast('No se pudo guardar: el navegador no permite almacenamiento local') }
+  }
 
   const next = async () => {
     const st = useStore.getState().step
@@ -52,6 +64,7 @@ export default function Transport() {
         <button className={`btn whitespace-nowrap ${!step.on ? 'btn-on' : ''}`} onClick={stopStep}>En vivo</button>
         <button className={`btn -ml-px whitespace-nowrap ${step.on ? 'btn-on' : ''}`} onClick={startStep}>Paso a paso</button>
       </div>
+      <button className="btn btn-icon" onClick={save} disabled={!nodeCount} aria-label="Guardar ejecución" title="Guardar ejecución (fijada en el historial)"><Save size={13} /></button>
       {step.on && (
         <div className="flex items-center gap-1.5">
           <button className="btn btn-icon" onClick={startStep} aria-label="Reiniciar" title="Reiniciar"><RotateCcw size={13} /></button>

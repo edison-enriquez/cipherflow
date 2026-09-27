@@ -34,6 +34,7 @@ export default function NodeDetail() {
   const setTab = useStore(s => s.setDetailTab)
   const showToast = useStore(s => s.showToast)
   const updateData = useStore(s => s.updateData)
+  const readOnly = useStore(s => s.mode === 'executions')
   const [html, setHtml] = useState<string | null>(null)
   const [ctx, setCtx] = useState<ExplainCtx | null>(null)
 
@@ -95,7 +96,7 @@ export default function NodeDetail() {
           <Square color={catColor(info.cat)} size={10} />
           <div className="min-w-0 flex-1">
             <h2 id="nd-title" className="truncate text-[17px] font-bold">{title}</h2>
-            <p className="truncate text-[10.5px] uppercase tracking-wider text-muted">{info.cat}{cfg && `, entra ${cfg.inputType} y sale ${cfg.outputType}`}</p>
+            <p className="truncate text-[10.5px] uppercase tracking-wider text-muted">{info.cat}{cfg && `, entra ${cfg.inputType} y sale ${cfg.outputType}`}{readOnly && <span className="text-green"> · ejecución guardada (solo lectura)</span>}</p>
           </div>
           <button className="btn btn-icon" disabled={pos <= 0} onClick={() => open(order[pos - 1])} aria-label="Bloque anterior"><ChevronLeft size={14} /></button>
           <button className="btn btn-icon" disabled={pos >= order.length - 1} onClick={() => open(order[pos + 1])} aria-label="Bloque siguiente"><ChevronRight size={14} /></button>
@@ -127,7 +128,7 @@ export default function NodeDetail() {
                 </div>
               ))}
             </Col>
-            <Col tab="par" cur={tab} title="Parámetros"><Params key={node.id} node={node} /></Col>
+            <Col tab="par" cur={tab} title="Parámetros"><fieldset disabled={readOnly} className="m-0 min-w-0 border-0 p-0"><Params key={node.id} node={node} /></fieldset></Col>
             <Col tab="out" cur={tab} title={<>Salida <span className="text-green">→</span></>}>
               {!res ? <p className="text-xs text-muted">Calculando…</p>
                 : !res.ok ? <pre className="whitespace-pre-wrap text-xs text-red">{res.err}</pre>
@@ -137,7 +138,7 @@ export default function NodeDetail() {
                     <DataView key={node.id + (html ? 'h' : '')} bytes={res.bytes!} html={html} />
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       <button className="btn" onClick={copy}><Copy size={12} /> Copiar salida</button>
-                      {cfg && <button className="btn" onClick={() => { invalidate(node.id); updateData(node.id, { args: [...(node.data.args ?? [])] }) }}><RefreshCw size={12} /> Volver a ejecutar</button>}
+                      {cfg && !readOnly && <button className="btn" onClick={() => { invalidate(node.id); updateData(node.id, { args: [...(node.data.args ?? [])] }) }}><RefreshCw size={12} /> Volver a ejecutar</button>}
                     </div>
                   </>
                 )}
