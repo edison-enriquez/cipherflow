@@ -80,6 +80,9 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
           <History size={13} /><span className="hidden sm:inline">Ejecuciones</span>{count > 0 && <span className="text-[10.5px] opacity-80">{count}</span>}
         </button>
       </div>
+      <button className="btn shrink-0 whitespace-nowrap" onClick={onExport} title="Exportar el flujo como JSON o como receta de CyberChef" aria-label="Exportar">
+        <Download size={13} /><span className="hidden md:inline">Exportar</span>
+      </button>
       {mode === 'editor' && (
         <button className={`btn shrink-0 whitespace-nowrap ${assistant ? 'btn-on' : ''}`} onClick={() => setAssistant(!assistant)} aria-pressed={assistant} title="Asistente de flujos con IA">
           <Sparkles size={13} /><span className="hidden lg:inline">Asistente</span>
@@ -89,7 +92,6 @@ export default function FlowBar({ onExport, onReset }: { onExport: () => void; o
         <button className="btn btn-icon" onClick={() => setMenu(v => !v)} aria-label="Más acciones del flujo" aria-expanded={menu}><MoreHorizontal size={14} /></button>
         {menu && (
           <div className="absolute right-0 top-9 z-40 w-60 border border-border bg-surface py-1 text-[12.5px] shadow-lg" role="menu">
-            <Item icon={<Download size={13} />} label="Exportar (JSON o receta)" onClick={act(onExport)} />
             {flowId && <Item icon={<Copy size={13} />} label="Duplicar" onClick={act(async () => { const c = await duplicateFlow(flowId); if (c) go({ view: 'flow', id: c.id, tab: 'editor' }) })} />}
             {canReset && <Item icon={<RotateCcw size={13} />} label={origin?.origin === 'lab' ? 'Reiniciar el laboratorio' : 'Reiniciar desde el ejemplo'} onClick={act(onReset)} />}
             <Item icon={<Eraser size={13} />} label="Vaciar el lienzo" disabled={mode !== 'editor'} onClick={act(() => { if (confirm('¿Borrar todos los bloques de este flujo?')) useStore.getState().setGraph([], []) })} />
