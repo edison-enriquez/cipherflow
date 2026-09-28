@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, CircuitBoard, Cloud, Cpu, ExternalLink, Eye, EyeOff, Loader2, Lock, X } from 'lucide-react'
+import { Check, CircuitBoard, Cloud, Copy, Cpu, ExternalLink, Eye, EyeOff, Loader2, Lock, Terminal, X } from 'lucide-react'
 import { useAgentStore, DEFAULT_CONFIG } from '../agent/config'
+import { OPENCODE_DEFAULT_MODEL, OPENCODE_DEFAULT_URL, installCommand, listOpenCodeFreeModels, newPassword, serveCommand, type Runner, type Shell } from '../agent/opencode'
+
+const PREFS_KEY = 'cipherflow.opencode.preferencias'
+function readPref<T extends string>(k: 'shell' | 'runner', def: T): T { try { return (JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')[k] as T) || def } catch { return def } }
+function writePref(k: 'shell' | 'runner', v: string) { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ ...JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'), [k]: v })) } catch { /* sin almacenamiento */ } }
 import { CLOUD, LOCAL_PROVIDERS, VISIBLE_CLOUD, WEBLLM_MODELS, WEBNN_MODELS, cloudKey, cloudModel, isCloud, listCloudModels, OPENROUTER_AUTO, probeWebNN, webgpuAvailable, webnnAvailable, type AgentConfig, type CloudProvider, type WebNNDevice } from '../agent/llm'
 
 /** Cómo se presenta cada proveedor: etiquetas cortas, una frase y qué implica su cuenta gratuita */
@@ -10,8 +15,9 @@ const INFO: Record<AgentConfig['provider'], { tags: string[]; desc: string; limi
   qwen: { tags: ['API oficial'], desc: 'Modelos Qwen desde Alibaba Model Studio.' },
   webllm: { tags: ['Local', 'Privado'], desc: 'Modelo en tu GPU con WebGPU; nada sale del equipo.' },
   webnn: { tags: ['Local', 'NPU'], desc: 'Modelo en la NPU con WebNN; sin límites de uso.' },
+  opencode: { tags: ['Gratis', 'Sin key'], desc: 'Modelos gratuitos de OpenCode Zen a través de OpenCode en tu equipo.' },
 }
-const NAME: Record<AgentConfig['provider'], string> = { groq: 'Groq', openrouter: 'OpenRouter', qwen: 'Qwen (Alibaba)', webllm: 'GPU (WebLLM)', webnn: 'NPU (WebNN)' }
+const NAME: Record<AgentConfig['provider'], string> = { groq: 'Groq', openrouter: 'OpenRouter', qwen: 'Qwen (Alibaba)', webllm: 'GPU (WebLLM)', webnn: 'NPU (WebNN)', opencode: 'OpenCode (local)' }
 
 /** Ajustes de IA: proveedor (en la nube: Groq u OpenRouter; ocultos: Alibaba y, en local, WebLLM en la GPU o WebNN en la NPU), key y modelo. Todo queda en este navegador. */
 export default function AgentSettings() {
@@ -45,7 +51,47 @@ export default function AgentSettings() {
   const cloud = isCloud(c.provider) ? c.provider : null
   const keyField = (p: CloudProvider): 'groqKey' | 'openrouterKey' | 'qwenKey' => (p === 'groq' ? 'groqKey' : p === 'openrouter' ? 'openrouterKey' : 'qwenKey')
   const modelField = (p: CloudProvider): 'groqModel' | 'openrouterModel' | 'qwenModel' => (p === 'groq' ? 'groqModel' : p === 'openrouter' ? 'openrouterModel' : 'qwenModel')
-  const pick = (provider: AgentConfig['provider']) => { setC({ ...c, provider }); setModels([]); setStatus({ kind: 'idle' }); setReveal(false) }
+  // OpenCode: la contraseña del servidor se genera aquí y va en el comando de arranque
+  const pick = (provider: AgentConfig['provider']) => {
+    setC({ ...c, provider, ...(provider === 'opencode' && !c.opencodePassword ? { opencodePassword: newPassword() } : {}) })
+    setModels([]); setStatus({ kind: 'idle' }); setReveal(false)
+  }
+  // Terminal y forma de ejecutar OpenCode: se recuerdan en este navegador
+  const [shell, setShellState] = useState<Shell>(() => readPref('shell', /Win/.test(navigator.platform) ? 'powershell' : 'bash'))
+  const [runner, setRunnerState] = useState<Runner>(() => readPref('runner', 'npx'))
+  const setShell = (v: Shell) => { setShellState(v); writePref('shell', v); setCopied(null) }
+  const setRunner = (v: Runner) => { setRunnerState(v); writePref('runner', v); setCopied(null) }
+  const [copied, setCopied] = useState<'serve' | 'install' | null>(null)
+  const [copyFailed, setCopyFailed] = useState(false)
+  const cmdRef = useRef<HTMLPreElement>(null)
+  /** Copia con la API del portapapeles; si el navegador la bloquea, con execCommand dentro del diálogo;
+   *  y si tampoco, deja el comando seleccionado para copiarlo con Ctrl+C. */
+  const copy = async (what: 'serve' | 'install', text: string) => {
+    setCopyFailed(false)
+    let ok = false
+    try { await navigator.clipboard.writeText(text); ok = true } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none'
+      ;(ref.current ?? document.body).appendChild(ta)
+      ta.select()
+      try { ok = document.execCommand('copy') } catch { ok = false }
+      ta.remove()
+    }
+    if (ok) { setCopied(what); return }
+    setCopied(null); setCopyFailed(true)
+    if (what === 'serve' && cmdRef.current) { const r = document.createRange(); r.selectNodeContents(cmdRef.current); const s = getSelection(); s?.removeAllRanges(); s?.addRange(r) }
+  }
+  const ocUrl = c.opencodeUrl || OPENCODE_DEFAULT_URL
+  const ocCommand = serveCommand({ shell, runner, password: c.opencodePassword ?? '', origin: location.origin, url: ocUrl })
+  const testOpenCode = async () => {
+    setStatus({ kind: 'loading' })
+    try {
+      const l = await listOpenCodeFreeModels({ url: ocUrl, password: c.opencodePassword ?? '' })
+      setModels(l)
+      if (!l.includes(c.opencodeModel ?? OPENCODE_DEFAULT_MODEL)) setC({ ...c, opencodeModel: l[0] })
+      setStatus({ kind: 'ok', msg: `Conectado · ${l.length} modelos gratuitos` })
+    } catch (e: any) { setStatus({ kind: 'err', msg: e?.message ?? String(e) }) }
+  }
   const hasKey = (p: CloudProvider) => cloudKey(saved, p).trim().length > 10
 
   const test = async () => {
@@ -61,10 +107,11 @@ export default function AgentSettings() {
   }
   const save = () => { setConfig(cloud ? { ...c, [keyField(cloud)]: cloudKey(c).trim() } : c); setOpen(false) }
   const disable = () => { setConfig({ ...DEFAULT_CONFIG }); setOpen(false) }
-  const canSave = cloud ? cloudKey(c).trim().length > 10 : c.provider === 'webnn' ? nn : gpu
+  const canSave = cloud ? cloudKey(c).trim().length > 10 : c.provider === 'opencode' ? (c.opencodePassword ?? '').length >= 8 : c.provider === 'webnn' ? nn : gpu
 
   const options: { id: AgentConfig['provider']; icon: ReactNode; off?: string }[] = [
     ...VISIBLE_CLOUD.map(id => ({ id, icon: <Cloud size={15} /> })),
+    { id: 'opencode' as const, icon: <Terminal size={15} /> },
     ...(LOCAL_PROVIDERS ? [
       { id: 'webllm' as const, icon: <Cpu size={15} />, off: gpu ? undefined : 'Este navegador no tiene WebGPU.' },
       { id: 'webnn' as const, icon: <CircuitBoard size={15} />, off: nn ? undefined : 'Requiere activar WebNN en el navegador.' },
@@ -151,6 +198,74 @@ export default function AgentSettings() {
               <span>La key se guarda solo en este navegador. Al usar la IA, tu pedido y los datos del bloque o flujo se envían a {CLOUD[cloud].name}; no envíes datos sensibles.</span>
             </p>
           </div>
+        ) : c.provider === 'opencode' ? (
+          <div className="space-y-3 border-t border-border pt-4">
+            <Step n={1} title="Arranca OpenCode en tu equipo">
+              <div className="space-y-2">
+                <Segmented label="¿Tienes OpenCode instalado?" value={runner} onChange={setRunner}
+                  options={[['cli', 'Sí, tengo el CLI'], ['npx', 'No, usar Node.js (npx)']]} />
+                <Segmented label="Terminal" value={shell} onChange={setShell}
+                  options={[['powershell', 'Windows (PowerShell)'], ['bash', 'macOS / Linux']]} />
+              </div>
+
+              {runner === 'cli' && (
+                <div className="mt-2.5 border border-border bg-base/50 p-2 text-[11px] leading-relaxed text-muted">
+                  <p>¿Aún no lo tienes? Instálalo una vez:</p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <code className="min-w-0 flex-1 truncate border border-border bg-base px-2 py-1 font-mono text-[10.5px] text-text">{installCommand(shell)}</code>
+                    <button className="btn shrink-0" onClick={() => copy('install', installCommand(shell))} aria-label="Copiar el comando de instalación">
+                      {copied === 'install' ? <Check size={12} /> : <Copy size={12} />}<span className="hidden sm:inline">{copied === 'install' ? 'Copiado' : 'Copiar'}</span>
+                    </button>
+                  </div>
+                  <p className="mt-1">Comprueba que funciona con <code>opencode --version</code>. Si la terminal no lo encuentra, ciérrala y abre otra.</p>
+                </div>
+              )}
+
+              <ol className="mt-2.5 list-decimal space-y-1 pl-4 text-[11.5px] leading-relaxed">
+                <li>Abre {shell === 'powershell' ? <>una terminal: tecla <b>Windows</b>, escribe <b>PowerShell</b> y pulsa Enter</> : <>una terminal (en macOS: <b>Terminal</b>, desde Spotlight)</>}.</li>
+                <li>Copia el comando con el botón, pégalo en la terminal y pulsa <b>Enter</b>.{runner === 'npx' && <> La primera vez descarga OpenCode (necesita <a className="text-green" href="https://nodejs.org" target="_blank" rel="noreferrer">Node.js</a>); tarda un poco.</>}</li>
+                <li>Cuando aparezca <code className="text-green">opencode server listening on {ocUrl}</code>, está listo. <b>Deja la terminal abierta</b> mientras uses la IA; para detenerlo, pulsa <b>Ctrl+C</b>.</li>
+              </ol>
+
+              <div className="mt-2 border border-border bg-base">
+                <pre ref={cmdRef} className="max-h-28 select-all overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-[10.5px] leading-snug">{ocCommand}</pre>
+                <div className="flex items-center gap-2 border-t border-border px-2 py-1.5">
+                  <span className="flex-1 text-[10.5px] text-muted">{shell === 'powershell' ? 'PowerShell' : 'Bash / zsh'} · {runner === 'cli' ? 'CLI de OpenCode' : 'npx (Node.js)'}</span>
+                  <button className={`btn ${copied === 'serve' ? '' : 'btn-primary'}`} onClick={() => copy('serve', ocCommand)}>
+                    {copied === 'serve' ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> Copiar comando</>}
+                  </button>
+                </div>
+              </div>
+              {copyFailed && <p role="alert" className="mt-1.5 text-[11.5px] text-yellow">El navegador no dejó copiar automáticamente. El comando ya está seleccionado: pulsa <b>Ctrl+C</b> (⌘C en Mac).</p>}
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                El comando incluye la contraseña de esta configuración y arranca OpenCode con un agente <b>sin herramientas</b>: no puede leer ni cambiar archivos de tu equipo. Si cambias de navegador o de equipo, vuelve a copiarlo desde aquí.
+              </p>
+            </Step>
+
+            <Step n={2} title="Conecta y prueba" htmlFor="ia-ocurl">
+              <div className="flex gap-2">
+                <input id="ia-ocurl" className="field-input min-w-0 flex-1 font-mono" spellCheck={false} value={ocUrl}
+                  onChange={e => { setC({ ...c, opencodeUrl: e.target.value.trim() }); setStatus({ kind: 'idle' }) }} aria-label="Dirección del servidor de OpenCode" />
+                <button className="btn shrink-0" onClick={testOpenCode} disabled={status.kind === 'loading'}>
+                  {status.kind === 'loading' ? <Loader2 size={12} className="animate-spin" /> : status.kind === 'ok' ? <Check size={12} /> : null} Probar
+                </button>
+              </div>
+              {status.msg && <p role="status" className={`mt-1.5 text-[11.5px] ${status.kind === 'err' ? 'text-red' : 'text-green'}`}>{status.msg}</p>}
+              <p className="mt-1 text-[11px] text-muted">Si el navegador pregunta si la página puede acceder a la red local, permítelo.</p>
+            </Step>
+
+            <Step n={3} title="Elige el modelo" htmlFor="ia-ocmodel">
+              <select id="ia-ocmodel" className="field-input w-full" value={c.opencodeModel || OPENCODE_DEFAULT_MODEL} onChange={e => setC({ ...c, opencodeModel: e.target.value })}>
+                {(models.length ? models : [c.opencodeModel || OPENCODE_DEFAULT_MODEL]).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{models.length ? 'Todos son gratuitos. Si uno tarda o no responde, prueba otro.' : 'Pulsa «Probar» para ver los modelos gratuitos disponibles.'}</p>
+            </Step>
+
+            <p className="flex gap-2 text-[11px] leading-relaxed text-muted">
+              <Lock size={12} className="mt-0.5 shrink-0" />
+              <span>Tu pedido y los datos del bloque o flujo van de tu equipo a OpenCode Zen. Mientras son gratuitos, OpenCode puede usar esos datos para mejorar los modelos: no envíes datos sensibles. Solo funciona en equipos con el servidor arrancado.</span>
+            </p>
+          </div>
         ) : c.provider === 'webnn' ? (
           <div className="space-y-2 border-t border-border pt-4">
             {!nn ? (
@@ -203,6 +318,23 @@ export default function AgentSettings() {
 }
 
 /** Paso numerado de la configuración */
+/** Selector de dos o más opciones en fila */
+function Segmented<T extends string>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: [T, string][] }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="w-full text-[11px] text-muted sm:w-40">{label}</span>
+      <div className="flex">
+        {options.map(([v, text], i) => (
+          <button key={v} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
+            className={`border px-2 py-1 text-[11px] ${i ? '-ml-px' : ''} ${value === v ? 'relative z-10 border-green/60 bg-green/10 text-green' : 'border-border text-muted hover:text-text'}`}>
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function Step({ n, title, htmlFor, children }: { n: number; title: string; htmlFor?: string; children: ReactNode }) {
   return (
     <div className="flex gap-3">
