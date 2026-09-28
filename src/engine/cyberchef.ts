@@ -45,6 +45,30 @@ export async function loadEngine(from?: { base: string; readJSON: (url: string) 
   ])
   core = c as Core
   manifest = m as Manifest
+  addProxyArg(core.OperationConfig[HTTP_OP])
+}
+
+// «HTTP request» con el proxy de lectura de CipherFlow (proxy/ en el repositorio, un Cloudflare Worker):
+// lee páginas que no envían CORS. Es un argumento extra que CyberChef no conoce; se traduce al ejecutar.
+const HTTP_OP = 'HTTP request'
+export const PROXY_ARG = 'Usar el proxy de CipherFlow (páginas sin CORS)'
+export const PROXY_URL = 'https://cipherflow.eehub.ing/proxy/?url='
+
+function addProxyArg(cfg?: OpConfig) {
+  if (!cfg || cfg.args.some(a => a.name === PROXY_ARG)) return
+  cfg.args.push({ name: PROXY_ARG, type: 'boolean', value: false })
+}
+
+/** Argumentos tal como los entiende CyberChef: sin los que añade CipherFlow, ya aplicados. */
+export function cyberChefArgs(name: string, args: any[]): any[] {
+  if (name !== HTTP_OP || args.length < 6) return args
+  const [method, url, headers, mode, meta, proxy] = args
+  if (!proxy) return [method, url, headers, mode, meta]
+  if (method !== 'GET' && method !== 'HEAD') throw new Error(`El proxy solo admite GET y HEAD (el bloque usa ${method}). Desmarca «${PROXY_ARG}» para enviarla directamente.`)
+  if (String(headers ?? '').trim()) throw new Error(`El proxy no reenvía cabeceras propias. Déjalas vacías o desmarca «${PROXY_ARG}».`)
+  if (!String(url ?? '').trim()) return [method, url, headers, mode, meta]
+  if (String(url).startsWith(PROXY_URL)) return [method, url, headers, 'Cross-Origin Resource Sharing', meta]
+  return [method, PROXY_URL + encodeURIComponent(String(url).trim()), headers, 'Cross-Origin Resource Sharing', meta]
 }
 
 export const engine = () => {
@@ -100,7 +124,7 @@ export async function runOperation(name: string, args: any[], input: any | null)
   const Op = await loadOpClass(name)
   const op = new Op()
   try {
-    op.ingValues = args
+    op.ingValues = cyberChefArgs(name, args)
     op.validateIngredients?.(op.ingValues)
   } catch (e) { throw new Error('Parámetros no válidos: ' + cleanError(e, name)) }
   const dish = input ? input.clone() : newDish('', 'string')

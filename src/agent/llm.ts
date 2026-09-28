@@ -10,10 +10,12 @@
 // navegador se usa OpenRouter con los modelos «:free».
 import type { MLCEngine } from '@mlc-ai/web-llm'
 import { NPU_MODELS, NpuLLM } from './webnnLLM'
+import { OPENCODE_DEFAULT_MODEL, OPENCODE_DEFAULT_URL, openCodeComplete } from './opencode'
 
 export interface Message { role: 'system' | 'user' | 'assistant'; content: string }
 export type CloudProvider = 'groq' | 'openrouter' | 'qwen'
-export type Provider = CloudProvider | 'webllm' | 'webnn'
+/** 'opencode': servidor local de OpenCode (modelos gratuitos de Zen), ver opencode.ts */
+export type Provider = CloudProvider | 'opencode' | 'webllm' | 'webnn'
 export type WebNNDevice = 'npu' | 'gpu'
 /** Modelos locales (WebLLM en la GPU y WebNN en la NPU): ocultos por ahora. En las pruebas con una
  * GPU/NPU integrada resultaron demasiado lentos o inestables (compilación de minutos, «device lost»). */
@@ -26,6 +28,7 @@ export interface AgentConfig {
   openrouterKey?: string; openrouterModel?: string
   qwenKey?: string; qwenModel?: string
   webllmModel: string; webnnModel?: string; webnnDevice?: WebNNDevice
+  opencodeUrl?: string; opencodePassword?: string; opencodeModel?: string
 }
 export interface LoadProgress { progress: number; text: string }
 
@@ -395,6 +398,11 @@ async function webnnComplete(cfg: AgentConfig, messages: Message[], o: CompleteO
 
 /** Punto único de llamada al modelo, con la misma firma para todos los proveedores. */
 export const completeLLM: CompleteFn = (cfg, messages, opts = {}) =>
-  cfg.provider === 'webllm' ? webllmComplete(cfg, messages, opts)
+  cfg.provider === 'opencode' ? openCodeComplete({
+    settings: { url: cfg.opencodeUrl || OPENCODE_DEFAULT_URL, password: cfg.opencodePassword ?? '' },
+    model: cfg.opencodeModel || OPENCODE_DEFAULT_MODEL, messages, json: opts.json, signal: opts.signal,
+    onProgress: text => opts.onProgress?.({ progress: 0, text }),
+  })
+  : cfg.provider === 'webllm' ? webllmComplete(cfg, messages, opts)
     : cfg.provider === 'webnn' ? webnnComplete(cfg, messages, opts)
     : cloudComplete(cfg, messages, opts)

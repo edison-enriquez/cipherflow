@@ -1,5 +1,5 @@
 // Ejemplos, importación (flujos de CipherFlow y recetas de CyberChef) y exportación.
-import { defaultArgs, namedArgs, opConfig } from './engine/cyberchef'
+import { cyberChefArgs, defaultArgs, namedArgs, opConfig } from './engine/cyberchef'
 import { EXCLUDED, customDefaults, isCustom } from './engine/catalog'
 import { inPort } from './engine/graph'
 import { edgeId } from './state/store'
@@ -86,7 +86,12 @@ export function recipeTo(id: string, nodes: OpNodeT[], edges: DataEdgeT[]) {
     seen.add(cur)
     const n = nodes.find(m => m.id === cur)
     if (!n) break
-    if (!isCustom(n.data.op)) path.unshift({ op: n.data.op, args: n.data.args ?? [] })
+    if (!isCustom(n.data.op)) {
+      // Con el proxy activado se exporta la URL ya reescrita, que CyberChef entiende
+      let args = n.data.args ?? []
+      try { args = cyberChefArgs(n.data.op, args) } catch { /* se exporta tal cual */ }
+      path.unshift({ op: n.data.op, args })
+    }
     cur = edges.find(e => e.target === cur && inPort(e) === 0)?.source
   }
   return path

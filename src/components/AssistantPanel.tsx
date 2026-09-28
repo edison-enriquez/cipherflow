@@ -276,7 +276,7 @@ export default function AssistantPanel({ overlay }: { overlay?: boolean }) {
       <div className="relative flex h-11 items-center gap-1 border-b border-border px-3">
         <Sparkles size={14} className="text-green" />
         <h2 className="ml-1 flex-1 truncate text-[13px] font-bold" title={thread.title}>{thread.messages.length ? thread.title : 'Asistente'}</h2>
-        {enabled && <button className="px-1 text-[10.5px] uppercase tracking-wider text-muted hover:text-green" onClick={() => openSettings(true)} title="Ajustes de IA">{{ groq: 'Groq', openrouter: 'OpenRouter', qwen: 'Qwen', webllm: 'GPU', webnn: 'NPU' }[config.provider]}</button>}
+        {enabled && <button className="px-1 text-[10.5px] uppercase tracking-wider text-muted hover:text-green" onClick={() => openSettings(true)} title="Ajustes de IA">{{ groq: 'Groq', openrouter: 'OpenRouter', qwen: 'Qwen', opencode: 'OpenCode', webllm: 'GPU', webnn: 'NPU' }[config.provider]}</button>}
         {enabled && <>
           <button className="btn btn-icon" onClick={() => setShowHistory(v => !v)} aria-label="Historial de conversaciones" title="Historial"><History size={13} /></button>
           <button className="btn btn-icon" onClick={newChat} aria-label="Conversación nueva" title="Conversación nueva"><Plus size={13} /></button>
@@ -303,7 +303,7 @@ export default function AssistantPanel({ overlay }: { overlay?: boolean }) {
       {!enabled ? (
         <div className="space-y-3 p-4 text-[12.5px] leading-relaxed">
           <p>Pregúntale a la IA por un bloque o por el flujo, o describe el flujo que quieres: lo construye, lo ejecuta en el motor real y lo repara hasta que funcione.</p>
-          <p className="text-muted">Para usarlo, elige un proveedor en la nube (Groq u OpenRouter) y pega tu API key.</p>
+          <p className="text-muted">Para usarlo, elige un proveedor en Ajustes de IA (Groq, OpenRouter u OpenCode en tu equipo).</p>
           <button className="btn btn-primary" onClick={() => openSettings(true)}><Settings size={12} /> Configurar la IA</button>
         </div>
       ) : (
@@ -372,7 +372,7 @@ export default function AssistantPanel({ overlay }: { overlay?: boolean }) {
                 ? <button className="btn btn-icon" onClick={() => abort.current?.abort()} aria-label="Detener" title="Detener"><Square size={11} /></button>
                 : <button className="btn btn-icon btn-primary" onClick={() => send()} disabled={!text.trim()} aria-label="Enviar" title="Enviar (Enter)"><ArrowUp size={13} /></button>}
             </div>
-            <p className="mt-1 truncate text-[10.5px] text-muted">{isCloud(config.provider) ? `Se envía a ${CLOUD[config.provider].name}` : 'Se procesa en tu equipo'} · Enter envía · Shift+Enter salto de línea</p>
+            <p className="mt-1 truncate text-[10.5px] text-muted">{isCloud(config.provider) ? `Se envía a ${CLOUD[config.provider].name}` : config.provider === 'opencode' ? 'Se envía a OpenCode Zen desde tu equipo' : 'Se procesa en tu equipo'} · Enter envía · Shift+Enter salto de línea</p>
           </div>
         </>
       )}

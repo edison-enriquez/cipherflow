@@ -13,14 +13,16 @@ function load(): AgentConfig {
     if (!isFreeOpenRouter(c.openrouterModel)) c.openrouterModel = CLOUD.openrouter.defaultModel
     // Quien tenía elegido un proveedor oculto (modelos locales, Alibaba) vuelve a Groq
     const local = c.provider === 'webllm' || c.provider === 'webnn'
-    if (isCloud(c.provider) ? !VISIBLE_CLOUD.includes(c.provider) : !(LOCAL_PROVIDERS && local)) c.provider = 'groq'
+    if (c.provider !== 'opencode' && (isCloud(c.provider) ? !VISIBLE_CLOUD.includes(c.provider) : !(LOCAL_PROVIDERS && local))) c.provider = 'groq'
     return c
   } catch { return DEFAULT_CONFIG }
 }
 
 /** ¿Hay un proveedor listo? Sin configurar, CipherFlow funciona igual pero sin funciones de IA. */
 export const isConfigured = (c: AgentConfig) =>
-  isCloud(c.provider) ? cloudKey(c).trim().length > 10 : c.provider === 'webnn' ? webnnAvailable() : webgpuAvailable()
+  isCloud(c.provider) ? cloudKey(c).trim().length > 10
+    : c.provider === 'opencode' ? (c.opencodePassword ?? '').length >= 8
+    : c.provider === 'webnn' ? webnnAvailable() : webgpuAvailable()
 
 interface AgentUI {
   config: AgentConfig
